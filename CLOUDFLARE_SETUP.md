@@ -18,7 +18,7 @@ This project uses Cloudflare Pages Functions for its API and Cloudflare D1 for t
 
 3. Copy the returned `database_id` into `wrangler.toml`.
 
-4. Apply the production migration:
+4. Apply all production migrations:
 
    ```bash
    npm run cf:db:migrate:remote
@@ -29,6 +29,17 @@ This project uses Cloudflare Pages Functions for its API and Cloudflare D1 for t
 
 6. Use `npm run build` as the build command and `dist` as the output directory.
 
+7. In the Pages project, open **Settings > Variables and Secrets** and add these encrypted secrets:
+
+   - `APP_PIN`: the exact six-digit PIN used to enter the app
+   - `SESSION_SECRET`: a random value containing at least 32 characters
+
+   Generate a session secret locally with `openssl rand -hex 32`. Add both values to the Production
+   environment and to Preview too if preview deployments should be usable. Never add either secret to
+   `wrangler.toml` or commit it to GitHub.
+
+8. Redeploy after adding or changing the secrets.
+
 ## Local Cloudflare preview
 
 Apply the local migration once:
@@ -37,18 +48,28 @@ Apply the local migration once:
 npm run cf:db:migrate:local
 ```
 
+Copy `.dev.vars.example` to `.dev.vars`, then replace the sample PIN and session secret with local values.
+The `.dev.vars` file is ignored by Git.
+
 Then run the Pages frontend, Functions, and local D1 database together:
 
 ```bash
-npm run cf:dev
+npm run dev
 ```
 
-The standard `npm run dev` command only starts Vite and does not provide the `/api` Functions.
+This starts the complete local application with Pages Functions, PIN authentication, and D1 at
+`http://localhost:8790`. The optional `npm run dev:vite` command only runs the frontend
+on port 5173, so login and database requests are unavailable in that mode.
 
-## Security
+## PIN security
 
-Before adding real records, protect the Pages domain with Cloudflare Access and allow only company
-email addresses. Access runs before Pages Functions, so it protects both the frontend and `/api` routes.
+The dashboard and all trip API routes require the shared six-digit PIN. The PIN page is shown whenever
+there is no valid session. A successful sign-in creates a secure HTTP-only session lasting seven days.
+Five incorrect attempts from one address trigger a
+15-minute lockout. There is no registration flow.
+
+A shared PIN is intentionally simpler than individual user accounts. For stronger identity-based access
+later, Cloudflare Access can be enabled in front of the site without removing this PIN gate.
 
 ## Existing browser data
 
