@@ -1,16 +1,20 @@
-import { errorResponse, insertValues, json, rowToTrip, validateTrip, type Env } from '../../worker/trips'
+import { refreshRouteEstimate } from '../../worker/route-estimate'
+import { errorResponse, insertValues, json, rowToTrip, selectTrip, validateTrip, type Env, type TripRow } from '../../worker/trips'
 
 const INSERT_SQL = `INSERT INTO trips (
   id, trip_date, truck_plate_number, driver_name, helper_name, destination, customer_name,
   revenue_centavos, driver_rate_centavos, helper_rate_centavos, gas_expense_centavos,
   parking_expense_centavos, toll_expense_centavos, food_expense_centavos, other_expense_centavos,
-  remarks, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  remarks, created_at, updated_at,
+  origin_province_code, origin_province, origin_city_code, origin_city, origin_barangay_code, origin_barangay, origin_address,
+  destination_province_code, destination_province, destination_city_code, destination_city, destination_barangay_code, destination_barangay, destination_address,
+  sub_trips_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   try {
-    const result = await env.DB.prepare('SELECT * FROM trips ORDER BY trip_date DESC, created_at DESC').all()
-    return json(result.results.map((row) => rowToTrip(row as never)))
+    const result = await env.DB.prepare('SELECT * FROM trips ORDER BY trip_date DESC, created_at DESC').all<TripRow>()
+    return json(result.results.map(rowToTrip))
   } catch (error) {
     return errorResponse(error)
   }
@@ -22,9 +26,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
     await env.DB.prepare(INSERT_SQL).bind(...insertValues(trip, id, now)).run()
-    return json({ ...trip, id, createdAt: now, updatedAt: now }, 201)
+    await refreshRouteEstimate(env, id, trip)
+    return json(await selectTrip(env.DB, id), 201)
   } catch (error) {
-    if (error instanceof SyntaxError || (error instanceof Error && error.message.includes('required'))) {
+    if (error instanceof SyntaxError || error instanceof Error && !error.message.includes('D1')) {
       return json({ error: error instanceof Error ? error.message : 'Invalid trip data.' }, 400)
     }
     return errorResponse(error)

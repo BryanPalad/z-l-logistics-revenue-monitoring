@@ -33,9 +33,10 @@ This project uses Cloudflare Pages Functions for its API and Cloudflare D1 for t
 
    - `APP_PIN`: the exact six-digit PIN used to enter the app
    - `SESSION_SECRET`: a random value containing at least 32 characters
+   - `GEOAPIFY_API_KEY`: the API key from a Geoapify project, used for route distance, drive time, and maps
 
-   Generate a session secret locally with `openssl rand -hex 32`. Add both values to the Production
-   environment and to Preview too if preview deployments should be usable. Never add either secret to
+   Generate a session secret locally with `openssl rand -hex 32`. Add all values to the Production
+   environment and to Preview too if preview deployments should be usable. Never add these secrets to
    `wrangler.toml` or commit it to GitHub.
 
 8. Redeploy after adding or changing the secrets.
@@ -50,6 +51,8 @@ npm run cf:db:migrate:local
 
 Copy `.dev.vars.example` to `.dev.vars`, then replace the sample PIN and session secret with local values.
 The `.dev.vars` file is ignored by Git.
+
+To enable local route estimates, also add your Geoapify key as `GEOAPIFY_API_KEY` in `.dev.vars`.
 
 Then run the Pages frontend, Functions, and local D1 database together:
 
@@ -70,6 +73,17 @@ Five incorrect attempts from one address trigger a
 
 A shared PIN is intentionally simpler than individual user accounts. For stronger identity-based access
 later, Cloudflare Access can be enabled in front of the site without removing this PIN gate.
+
+## Route estimates and maps
+
+Create a free Geoapify account and API key, then add it as the encrypted `GEOAPIFY_API_KEY` secret in
+Cloudflare Pages. The key is used only by Pages Functions and is never sent to the frontend. A trip's
+ordered route is its From location, main To location, then any additional routes. The driving distance,
+estimated duration, and route geometry are calculated when the trip is saved and cached in D1.
+
+Existing trips get a route estimate the next time they are edited and saved. If Geoapify is not configured
+or cannot locate an address, the trip still saves normally and its route estimate remains unavailable.
+Exact street or block addresses improve the result, but city and province are sufficient for a city-level estimate.
 
 ## Existing browser data
 

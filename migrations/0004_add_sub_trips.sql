@@ -1,0 +1,1 @@
+ALTER TABLE trips ADD COLUMN sub_trips_json TEXT NOT NULL DEFAULT '[]';

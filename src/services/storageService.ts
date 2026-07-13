@@ -34,10 +34,18 @@ const createRemoteTrip = (input: TripInput) => request<Trip>('/api/trips', {
 
 const tripToInput = (trip: Trip): TripInput => ({
   tripDate: trip.tripDate, truckPlateNumber: trip.truckPlateNumber, driverName: trip.driverName,
-  helperName: trip.helperName, destination: trip.destination, customerName: trip.customerName,
+  helperName: trip.helperName,
+  originProvinceCode: trip.originProvinceCode ?? '', originProvince: trip.originProvince ?? '',
+  originCityCode: trip.originCityCode ?? '', originCity: trip.originCity ?? '',
+  originBarangayCode: trip.originBarangayCode ?? '', originBarangay: trip.originBarangay ?? '', originAddress: trip.originAddress ?? '',
+  destinationProvinceCode: trip.destinationProvinceCode ?? '', destinationProvince: trip.destinationProvince ?? '',
+  destinationCityCode: trip.destinationCityCode ?? '', destinationCity: trip.destinationCity ?? '',
+  destinationBarangayCode: trip.destinationBarangayCode ?? '', destinationBarangay: trip.destinationBarangay ?? '',
+  destinationAddress: trip.destinationAddress ?? trip.destination, destination: trip.destination, customerName: trip.customerName,
   revenue: trip.revenue, driverRate: trip.driverRate, helperRate: trip.helperRate,
   gasExpense: trip.gasExpense, parkingExpense: trip.parkingExpense, tollExpense: trip.tollExpense,
   foodExpense: trip.foodExpense, otherExpense: trip.otherExpense, remarks: trip.remarks,
+  subTrips: trip.subTrips ?? [],
 })
 
 export const storageService = {

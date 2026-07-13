@@ -1,11 +1,11 @@
 import { Banknote, ChartNoAxesCombined, CircleDollarSign, Truck } from 'lucide-react'
 import type { Trip } from '../types'
-import { formatPeso, getEstimatedProfit, getTotalExpenses } from '../utils/calculations'
+import { formatPeso, getEstimatedProfit, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
 
 interface Props { trips: Trip[] }
 
 export function SummaryCards({ trips }: Props) {
-  const revenue = trips.reduce((sum, trip) => sum + trip.revenue, 0)
+  const revenue = trips.reduce((sum, trip) => sum + getTotalRevenue(trip), 0)
   const expenses = trips.reduce((sum, trip) => sum + getTotalExpenses(trip), 0)
   const profit = trips.reduce((sum, trip) => sum + getEstimatedProfit(trip), 0)
   const cards = [
