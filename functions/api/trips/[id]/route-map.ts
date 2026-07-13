@@ -9,13 +9,14 @@ interface Waypoint {
   lat: number
   lon: number
   label: string
+  markerText?: string
 }
 
 const parseJson = <T>(value: string, fallback: T): T => {
   try { return JSON.parse(value) as T } catch { return fallback }
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ env, params }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
   try {
     if (!env.GEOAPIFY_API_KEY) return json({ error: 'Route maps are not configured.' }, 404)
     const row = await env.DB.prepare(
@@ -23,28 +24,38 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, params }) => {
     ).bind(String(params.id)).first<RouteMapRow>()
     if (!row) return json({ error: 'Trip not found.' }, 404)
 
-    const waypoints = parseJson<Waypoint[]>(row.route_waypoints_json, [])
+    const storedWaypoints = parseJson<Waypoint[]>(row.route_waypoints_json, [])
+    const waypoints = storedWaypoints.map((waypoint, index) => waypoint.markerText === 'H'
+      ? { ...waypoint, markerText: index === 0 ? 'S' : index === storedWaypoints.length - 1 ? 'E' : waypoint.markerText, label: index === 0 ? 'Starting location' : index === storedWaypoints.length - 1 ? 'Ending location' : waypoint.label }
+      : waypoint)
     const geometry = parseJson<number[][]>(row.route_geometry_json, [])
     if (waypoints.length < 2 || !geometry.length) return json({ error: 'No route map is available for this trip.' }, 404)
+    const sampleEvery = Math.max(1, Math.ceil(geometry.length / 800))
+    const mapGeometry = geometry.filter((_, index) => index % sampleEvery === 0 || index === geometry.length - 1)
 
+    const highResolution = new URL(request.url).searchParams.get('highres') === '1'
     const url = new URL('https://maps.geoapify.com/v1/staticmap')
     url.searchParams.set('apiKey', env.GEOAPIFY_API_KEY)
     const mapResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        style: 'osm-bright', width: 900, height: 420, scaleFactor: 1,
-        markers: waypoints.map(({ lat, lon }, index) => ({
-          lat, lon, type: 'circle', color: index === 0 ? '#168159' : index === waypoints.length - 1 ? '#d04747' : '#3157d5',
-          size: 'medium', text: String(index + 1), textsize: 'small',
+        style: 'osm-bright', width: 900, height: 420, scaleFactor: highResolution ? 2 : 1,
+        markers: waypoints.map(({ lat, lon, markerText }, index) => ({
+          lat, lon, type: 'circle',
+          color: markerText === 'S' ? '#168159' : markerText === 'P' ? '#ea8a2f' : markerText === 'E' ? '#d04747' : '#3157d5',
+          size: 'medium', text: markerText || String(index + 1), textsize: 'small',
         })),
         geometries: [{
           type: 'polyline', linecolor: '#3157d5', lineopacity: 0.9, linewidth: 5,
-          value: geometry.map(([lon, lat]) => ({ lat, lon })),
+          value: mapGeometry.map(([lon, lat]) => ({ lat, lon })),
         }],
       }),
     })
-    if (!mapResponse.ok) throw new Error('The route map could not be generated.')
+    if (!mapResponse.ok) {
+      console.error('Geoapify static map failed:', mapResponse.status, await mapResponse.text())
+      throw new Error('The route map could not be generated.')
+    }
     const headers = new Headers()
     headers.set('Content-Type', mapResponse.headers.get('Content-Type') || 'image/png')
     headers.set('Cache-Control', 'private, max-age=86400')

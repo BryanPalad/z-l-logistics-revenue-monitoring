@@ -1,6 +1,6 @@
 import { Copy, Edit3, Trash2, Truck } from 'lucide-react'
 import type { Trip } from '../types'
-import { formatDate, formatDistance, formatPeso, getEstimatedProfit, getOtherExpenses, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
+import { formatDate, formatDistance, formatDriverHours, formatPeso, getDriverMinutes, getEstimatedProfit, getOtherExpenses, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
 
 interface Props {
   trips: Trip[]
@@ -31,7 +31,7 @@ export function TripTable({ trips, hasTrips, onEdit, onDuplicate, onDelete, onVi
     <div className="table-scroll">
       <table>
         <thead><tr>
-          <th>Date</th><th>Truck Plate</th><th>Driver</th><th>Helper</th><th>From</th><th>To</th><th className="number">Est. KM</th><th>Customer</th>
+          <th>Date</th><th>Truck Plate</th><th>Driver</th><th>Driver Hours</th><th>Helper</th><th>Pick Up</th><th>Drop-off 1</th><th>Ending Location</th><th className="number">Total KM</th><th>Warehouse / Hub</th>
           <th className="number">Revenue</th><th className="number">Driver Rate</th><th className="number">Helper Rate</th>
           <th className="number">Gas Expense</th><th className="number">Other Expenses</th><th className="number">Total Expenses</th>
           <th className="number">Est. Profit</th><th>Remarks</th><th className="actions-heading">Actions</th>
@@ -42,9 +42,10 @@ export function TripTable({ trips, hasTrips, onEdit, onDuplicate, onDelete, onVi
             <tr className="clickable-row" key={trip.id} tabIndex={0} onClick={() => onView(trip)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onView(trip) } }} aria-label={`View details for trip from ${trip.originCity || 'unspecified origin'} to ${trip.destinationCity || trip.destination}`}>
               <td className="date-cell">{formatDate(trip.tripDate)}</td>
               <td><span className="plate">{trip.truckPlateNumber}</span></td>
-              <td className="primary-cell">{trip.driverName}</td><td>{trip.helperName || '—'}</td>
+              <td className="primary-cell">{trip.driverName}</td><td>{formatDriverHours(getDriverMinutes(trip))}</td><td>{trip.helperName || '—'}</td>
               <td className="route-cell" title={locationLabel(trip.originAddress, trip.originBarangay, trip.originCity, trip.originProvince)}><strong>{trip.originCity || 'Not specified'}</strong><small>{trip.originBarangay || trip.originProvince || trip.originAddress || 'Legacy record'}</small></td>
-              <td className="route-cell" title={locationLabel(trip.destinationAddress, trip.destinationBarangay, trip.destinationCity, trip.destinationProvince, trip.destination)}><strong>{trip.destinationCity || trip.destination}</strong><small>{trip.subTrips.length ? `+${trip.subTrips.length} additional ${trip.subTrips.length === 1 ? 'route' : 'routes'}` : trip.destinationBarangay || trip.destinationProvince || trip.destinationAddress || '—'}</small></td>
+              <td className="route-cell" title={locationLabel(trip.destinationAddress, trip.destinationBarangay, trip.destinationCity, trip.destinationProvince, trip.destination)}><strong>{trip.destinationCity || trip.destination}</strong><small>{trip.dropOffs.length ? `+${trip.dropOffs.length} additional ${trip.dropOffs.length === 1 ? 'drop-off' : 'drop-offs'}` : trip.destinationBarangay || trip.destinationProvince || trip.destinationAddress || '—'}</small></td>
+              <td className="route-cell" title={locationLabel(trip.endingAddress, trip.endingBarangay, trip.endingCity, trip.endingProvince)}><strong>{trip.endingCity || 'Not specified'}</strong><small>{trip.endingBarangay || trip.endingProvince || trip.endingAddress || '—'}</small></td>
               <td className="number distance-cell">{formatDistance(trip.routeDistanceMeters)}</td>
               <td>{trip.customerName || '—'}</td>
               <td className="number revenue-cell">{formatPeso(getTotalRevenue(trip))}</td>

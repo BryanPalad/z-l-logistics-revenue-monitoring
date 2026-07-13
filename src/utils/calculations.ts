@@ -6,12 +6,36 @@ export const getOtherExpenses = (trip: TripInput) =>
 export const getTotalExpenses = (trip: TripInput) =>
   trip.driverRate + trip.helperRate + trip.gasExpense + getOtherExpenses(trip)
 
-export const getAdditionalRevenue = (trip: TripInput) =>
-  (trip.subTrips ?? []).reduce((sum, subTrip) => sum + subTrip.customerRate, 0)
-
-export const getTotalRevenue = (trip: TripInput) => trip.revenue + getAdditionalRevenue(trip)
+export const getTotalRevenue = (trip: TripInput) => trip.revenue
 
 export const getEstimatedProfit = (trip: TripInput) => getTotalRevenue(trip) - getTotalExpenses(trip)
+
+const timeToMinutes = (time: string) => {
+  if (!/^\d{2}:\d{2}$/.test(time)) return null
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : null
+}
+
+export const getDriverMinutes = (trip: Pick<TripInput, 'driverStartTime' | 'driverEndTime'>) => {
+  const start = timeToMinutes(trip.driverStartTime)
+  const end = timeToMinutes(trip.driverEndTime)
+  if (start == null || end == null) return null
+  return end >= start ? end - start : 24 * 60 - start + end
+}
+
+export const getDriverDailyMinutes = (trip: TripInput, trips: TripInput[]) => {
+  const driver = trip.driverName.trim().toLocaleLowerCase()
+  return trips
+    .filter((candidate) => candidate.tripDate === trip.tripDate && candidate.driverName.trim().toLocaleLowerCase() === driver)
+    .reduce((total, candidate) => total + (getDriverMinutes(candidate) ?? 0), 0)
+}
+
+export const formatDriverHours = (minutes: number | null | undefined) => {
+  if (minutes == null || !Number.isFinite(minutes)) return '—'
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  return `${hours} hr${hours === 1 ? '' : 's'}${remainder ? ` ${remainder} min` : ''}`
+}
 
 export const formatPeso = (value: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value || 0)

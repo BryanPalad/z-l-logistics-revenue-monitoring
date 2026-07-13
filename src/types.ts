@@ -1,4 +1,4 @@
-export interface SubTripInput {
+export interface DropOffInput {
   id: string
   destinationProvinceCode: string
   destinationProvince: string
@@ -7,7 +7,6 @@ export interface SubTripInput {
   destinationBarangayCode: string
   destinationBarangay: string
   destinationAddress: string
-  customerRate: number
 }
 
 export interface TripInput {
@@ -15,6 +14,22 @@ export interface TripInput {
   truckPlateNumber: string
   driverName: string
   helperName: string
+  driverStartTime: string
+  driverEndTime: string
+  homeProvinceCode: string
+  homeProvince: string
+  homeCityCode: string
+  homeCity: string
+  homeBarangayCode: string
+  homeBarangay: string
+  homeAddress: string
+  endingProvinceCode: string
+  endingProvince: string
+  endingCityCode: string
+  endingCity: string
+  endingBarangayCode: string
+  endingBarangay: string
+  endingAddress: string
   originProvinceCode: string
   originProvince: string
   originCityCode: string
@@ -39,13 +54,14 @@ export interface TripInput {
   tollExpense: number
   foodExpense: number
   otherExpense: number
-  subTrips: SubTripInput[]
+  dropOffs: DropOffInput[]
   remarks: string
 }
 
 export interface Trip extends TripInput {
   id: string
   routeDistanceMeters: number | null
+  deliveryDistanceMeters: number | null
   routeDurationSeconds: number | null
   routeCalculatedAt: string
   createdAt: string

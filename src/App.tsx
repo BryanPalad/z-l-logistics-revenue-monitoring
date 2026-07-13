@@ -15,12 +15,14 @@ import { exportTripsToCsv } from './utils/exportCsv'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const emptyTrip = (): TripInput => ({
-  tripDate: today(), truckPlateNumber: '', driverName: '', helperName: '',
+  tripDate: today(), truckPlateNumber: '', driverName: '', helperName: '', driverStartTime: '', driverEndTime: '',
+  homeProvinceCode: '', homeProvince: '', homeCityCode: '', homeCity: '', homeBarangayCode: '', homeBarangay: '', homeAddress: '',
+  endingProvinceCode: '', endingProvince: '', endingCityCode: '', endingCity: '', endingBarangayCode: '', endingBarangay: '', endingAddress: '',
   originProvinceCode: '', originProvince: '', originCityCode: '', originCity: '', originBarangayCode: '', originBarangay: '', originAddress: '',
   destinationProvinceCode: '', destinationProvince: '', destinationCityCode: '', destinationCity: '', destinationBarangayCode: '', destinationBarangay: '', destinationAddress: '',
   destination: '', customerName: '',
   revenue: 0, driverRate: 0, helperRate: 0, gasExpense: 0, parkingExpense: 0, tollExpense: 0,
-  foodExpense: 0, otherExpense: 0, subTrips: [], remarks: '',
+  foodExpense: 0, otherExpense: 0, dropOffs: [], remarks: '',
 })
 
 function App() {
@@ -94,9 +96,11 @@ function App() {
     return monthFilteredTrips
       .filter((trip) => !query || [
         trip.driverName, trip.helperName, trip.truckPlateNumber, trip.destination, trip.customerName,
+        trip.homeProvince, trip.homeCity, trip.homeBarangay, trip.homeAddress,
+        trip.endingProvince, trip.endingCity, trip.endingBarangay, trip.endingAddress,
         trip.originProvince, trip.originCity, trip.originBarangay, trip.originAddress,
         trip.destinationProvince, trip.destinationCity, trip.destinationBarangay, trip.destinationAddress,
-        ...trip.subTrips.flatMap((subTrip) => [subTrip.destinationProvince, subTrip.destinationCity, subTrip.destinationBarangay, subTrip.destinationAddress]),
+        ...trip.dropOffs.flatMap((dropOff) => [dropOff.destinationProvince, dropOff.destinationCity, dropOff.destinationBarangay, dropOff.destinationAddress]),
       ].some((value) => (value ?? '').toLowerCase().includes(query)))
   }, [monthFilteredTrips, search])
 
@@ -129,6 +133,13 @@ function App() {
   const initialData: TripInput = modal?.trip ? {
     tripDate: modal.trip.tripDate, truckPlateNumber: modal.trip.truckPlateNumber,
     driverName: modal.trip.driverName, helperName: modal.trip.helperName,
+    driverStartTime: modal.trip.driverStartTime ?? '', driverEndTime: modal.trip.driverEndTime ?? '',
+    homeProvinceCode: modal.trip.homeProvinceCode ?? '', homeProvince: modal.trip.homeProvince ?? '',
+    homeCityCode: modal.trip.homeCityCode ?? '', homeCity: modal.trip.homeCity ?? '',
+    homeBarangayCode: modal.trip.homeBarangayCode ?? '', homeBarangay: modal.trip.homeBarangay ?? '', homeAddress: modal.trip.homeAddress ?? '',
+    endingProvinceCode: modal.trip.endingProvinceCode ?? '', endingProvince: modal.trip.endingProvince ?? '',
+    endingCityCode: modal.trip.endingCityCode ?? '', endingCity: modal.trip.endingCity ?? '',
+    endingBarangayCode: modal.trip.endingBarangayCode ?? '', endingBarangay: modal.trip.endingBarangay ?? '', endingAddress: modal.trip.endingAddress ?? '',
     originProvinceCode: modal.trip.originProvinceCode, originProvince: modal.trip.originProvince,
     originCityCode: modal.trip.originCityCode, originCity: modal.trip.originCity,
     originBarangayCode: modal.trip.originBarangayCode ?? '', originBarangay: modal.trip.originBarangay ?? '', originAddress: modal.trip.originAddress,
@@ -140,7 +151,8 @@ function App() {
     revenue: modal.trip.revenue, driverRate: modal.trip.driverRate,
     helperRate: modal.trip.helperRate, gasExpense: modal.trip.gasExpense,
     parkingExpense: modal.trip.parkingExpense, tollExpense: modal.trip.tollExpense,
-    foodExpense: modal.trip.foodExpense, otherExpense: modal.trip.otherExpense, subTrips: modal.trip.subTrips,
+    foodExpense: modal.trip.foodExpense, otherExpense: modal.trip.otherExpense,
+    dropOffs: modal.trip.dropOffs ?? [],
     remarks: modal.trip.remarks,
   } : emptyTrip()
 
@@ -172,7 +184,7 @@ function App() {
       <footer className="app-footer"><span>Z&amp;L Palm Line Logistic · Logistics monitoring</span><span>Securely stored in Cloudflare D1</span></footer>
 
       {modal && <TripModal mode={modal.mode} initialData={initialData} onClose={() => !saving && setModal(null)} onSave={saveTrip} saving={saving} />}
-      {viewTarget && <TripDetailsModal trip={viewTarget} onClose={() => setViewTarget(null)} onEdit={(trip) => { setViewTarget(null); setModal({ mode: 'edit', trip }) }} />}
+      {viewTarget && <TripDetailsModal trip={viewTarget} trips={trips} onClose={() => setViewTarget(null)} onEdit={(trip) => { setViewTarget(null); setModal({ mode: 'edit', trip }) }} />}
       {deleteTarget && <ConfirmDeleteModal trip={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={deleteTrip} />}
       {toast && <SuccessToast key={toast.id} message={toast.message} onDismiss={() => setToast(null)} />}
     </div>
