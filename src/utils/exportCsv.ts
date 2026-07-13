@@ -1,24 +1,30 @@
 import type { Trip } from '../types'
-import { formatDistance, formatDuration, formatPeso, getAdditionalRevenue, getEstimatedProfit, getOtherExpenses, getTotalExpenses, getTotalRevenue } from './calculations'
+import { formatDistance, formatDriverHours, formatDuration, getDriverMinutes, getEstimatedProfit, getOtherExpenses, getTotalExpenses, getTotalRevenue } from './calculations'
 
 const escapeCsv = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
 
 export function exportTripsToCsv(trips: Trip[]) {
   const headers = [
-    'Date', 'Truck Plate', 'Driver', 'Helper',
-    'From Province', 'From City/Municipality', 'From Barangay', 'From Exact Address',
-    'To Province', 'To City/Municipality', 'To Barangay', 'To Exact Address', 'Additional Routes', 'Estimated Distance', 'Estimated Drive Time', 'Customer',
-    'Main Revenue', 'Additional Revenue', 'Total Revenue',
+    'Date', 'Truck Plate', 'Driver', 'Driver Start Time', 'Driver End Time', 'Driver Hours', 'Helper',
+    'Starting Province', 'Starting City/Municipality', 'Starting Barangay', 'Starting Exact Address',
+    'Pick Up Province', 'Pick Up City/Municipality', 'Pick Up Barangay', 'Pick Up Exact Address',
+    'Drop-off 1 Province', 'Drop-off 1 City/Municipality', 'Drop-off 1 Barangay', 'Drop-off 1 Exact Address',
+    'Additional Drop-offs',
+    'Ending Province', 'Ending City/Municipality', 'Ending Barangay', 'Ending Exact Address',
+    'Total Route Distance', 'Pick Up to Drop-offs Distance', 'Estimated Drive Time', 'Warehouse / Hub',
+    'Total Revenue',
     'Driver Rate', 'Helper Rate', 'Gas Expense', 'Other Expenses', 'Total Expenses',
     'Estimated Profit', 'Remarks',
   ]
   const rows = trips.map((trip) => [
-    trip.tripDate, trip.truckPlateNumber, trip.driverName, trip.helperName,
+    trip.tripDate, trip.truckPlateNumber, trip.driverName, trip.driverStartTime, trip.driverEndTime, formatDriverHours(getDriverMinutes(trip)), trip.helperName,
+    trip.homeProvince, trip.homeCity, trip.homeBarangay, trip.homeAddress,
     trip.originProvince, trip.originCity, trip.originBarangay, trip.originAddress,
     trip.destinationProvince, trip.destinationCity, trip.destinationBarangay, trip.destinationAddress,
-    trip.subTrips.map((subTrip, index) => `${index + 1}. ${[subTrip.destinationAddress, subTrip.destinationBarangay, subTrip.destinationCity, subTrip.destinationProvince].filter(Boolean).join(', ')} (${formatPeso(subTrip.customerRate)})`).join(' | '),
-    formatDistance(trip.routeDistanceMeters), formatDuration(trip.routeDurationSeconds), trip.customerName,
-    trip.revenue, getAdditionalRevenue(trip), getTotalRevenue(trip), trip.driverRate, trip.helperRate, trip.gasExpense,
+    trip.dropOffs.map((dropOff, index) => `${index + 2}. ${[dropOff.destinationAddress, dropOff.destinationBarangay, dropOff.destinationCity, dropOff.destinationProvince].filter(Boolean).join(', ')}`).join(' | '),
+    trip.endingProvince, trip.endingCity, trip.endingBarangay, trip.endingAddress,
+    formatDistance(trip.routeDistanceMeters), formatDistance(trip.deliveryDistanceMeters), formatDuration(trip.routeDurationSeconds), trip.customerName,
+    getTotalRevenue(trip), trip.driverRate, trip.helperRate, trip.gasExpense,
     getOtherExpenses(trip), getTotalExpenses(trip), getEstimatedProfit(trip), trip.remarks,
   ])
   const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n')

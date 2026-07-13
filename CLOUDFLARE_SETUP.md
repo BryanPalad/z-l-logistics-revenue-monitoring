@@ -78,8 +78,9 @@ later, Cloudflare Access can be enabled in front of the site without removing th
 
 Create a free Geoapify account and API key, then add it as the encrypted `GEOAPIFY_API_KEY` secret in
 Cloudflare Pages. The key is used only by Pages Functions and is never sent to the frontend. A trip's
-ordered route is its From location, main To location, then any additional routes. The driving distance,
-estimated duration, and route geometry are calculated when the trip is saved and cached in D1.
+ordered route starts at the Starting Location, continues to Pick Up, visits Drop-off 1 and every additional numbered
+drop-off, then finishes at the Ending Location. The total route distance, Pick Up-to-drop-offs distance, estimated
+duration, and route geometry are calculated when the trip is saved and cached in D1.
 
 Existing trips get a route estimate the next time they are edited and saved. If Geoapify is not configured
 or cannot locate an address, the trip still saves normally and its route estimate remains unavailable.

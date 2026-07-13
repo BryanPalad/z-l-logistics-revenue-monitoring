@@ -2,10 +2,14 @@ import { refreshRouteEstimate } from '../../../worker/route-estimate'
 import { errorResponse, json, selectTrip, updateValues, validateTrip, type Env } from '../../../worker/trips'
 
 const UPDATE_SQL = `UPDATE trips SET
-  trip_date = ?, truck_plate_number = ?, driver_name = ?, helper_name = ?, destination = ?, customer_name = ?,
+  trip_date = ?, truck_plate_number = ?, driver_name = ?, helper_name = ?, driver_start_time = ?, driver_end_time = ?, destination = ?, customer_name = ?,
   revenue_centavos = ?, driver_rate_centavos = ?, helper_rate_centavos = ?, gas_expense_centavos = ?,
   parking_expense_centavos = ?, toll_expense_centavos = ?, food_expense_centavos = ?, other_expense_centavos = ?,
   remarks = ?, updated_at = ?,
+  home_province_code = ?, home_province = ?, home_city_code = ?, home_city = ?,
+  home_barangay_code = ?, home_barangay = ?, home_address = ?,
+  ending_province_code = ?, ending_province = ?, ending_city_code = ?, ending_city = ?,
+  ending_barangay_code = ?, ending_barangay = ?, ending_address = ?,
   origin_province_code = ?, origin_province = ?, origin_city_code = ?, origin_city = ?,
   origin_barangay_code = ?, origin_barangay = ?, origin_address = ?,
   destination_province_code = ?, destination_province = ?, destination_city_code = ?, destination_city = ?,

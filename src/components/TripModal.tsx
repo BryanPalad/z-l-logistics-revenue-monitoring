@@ -1,9 +1,9 @@
-import { CalendarDays, Info, MapPin, Navigation, Plus, Trash2, X } from 'lucide-react'
+import { CalendarDays, Clock3, Flag, Info, MapPin, Navigation, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BarangaySelect } from './BarangaySelect'
 import { PHILIPPINE_LOCATIONS } from '../data/philippineLocations'
-import type { ModalMode, SubTripInput, TripFormErrors, TripInput } from '../types'
-import { formatPeso, getAdditionalRevenue, getEstimatedProfit, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
+import type { DropOffInput, ModalMode, TripFormErrors, TripInput } from '../types'
+import { formatPeso, getEstimatedProfit, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
 
 interface Props {
   mode: ModalMode
@@ -15,6 +15,7 @@ interface Props {
 
 const requiredText: (keyof TripInput)[] = [
   'tripDate', 'truckPlateNumber', 'driverName',
+  'homeProvince', 'homeCity', 'endingProvince', 'endingCity',
   'originProvince', 'originCity', 'destinationProvince', 'destinationCity',
 ]
 const requiredMoney: (keyof TripInput)[] = ['revenue', 'driverRate']
@@ -24,16 +25,38 @@ const moneyFields: (keyof TripInput)[] = [
 
 const textLabels: Partial<Record<keyof TripInput, string>> = {
   tripDate: 'Trip date', truckPlateNumber: 'Truck plate number', driverName: 'Driver name',
+  homeProvince: 'Starting province', homeCity: 'Starting city or municipality',
+  endingProvince: 'Ending province', endingCity: 'Ending city or municipality',
   originProvince: 'From province', originCity: 'From city or municipality',
   destinationProvince: 'To province', destinationCity: 'To city or municipality',
   revenue: 'Revenue', driverRate: 'Driver rate', helperRate: 'Helper rate', gasExpense: 'Gas expense',
 }
 
+type LocationSide = 'home' | 'origin' | 'destination' | 'ending'
+
+const locationFieldNames = {
+  home: {
+    provinceCode: 'homeProvinceCode', province: 'homeProvince', cityCode: 'homeCityCode', city: 'homeCity',
+    barangayCode: 'homeBarangayCode', barangay: 'homeBarangay', address: 'homeAddress',
+  },
+  ending: {
+    provinceCode: 'endingProvinceCode', province: 'endingProvince', cityCode: 'endingCityCode', city: 'endingCity',
+    barangayCode: 'endingBarangayCode', barangay: 'endingBarangay', address: 'endingAddress',
+  },
+  origin: {
+    provinceCode: 'originProvinceCode', province: 'originProvince', cityCode: 'originCityCode', city: 'originCity',
+    barangayCode: 'originBarangayCode', barangay: 'originBarangay', address: 'originAddress',
+  },
+  destination: {
+    provinceCode: 'destinationProvinceCode', province: 'destinationProvince', cityCode: 'destinationCityCode', city: 'destinationCity',
+    barangayCode: 'destinationBarangayCode', barangay: 'destinationBarangay', address: 'destinationAddress',
+  },
+} as const
+
 export function TripModal({ mode, initialData, onClose, onSave, saving = false }: Props) {
   const [form, setForm] = useState<TripInput>(initialData)
   const [errors, setErrors] = useState<TripFormErrors>({})
-  const [subTripErrors, setSubTripErrors] = useState<Record<string, Partial<Record<'province' | 'city' | 'rate', string>>>>({})
-  const additionalRevenue = useMemo(() => getAdditionalRevenue(form), [form])
+  const [dropOffErrors, setDropOffErrors] = useState<Record<string, Partial<Record<'province' | 'city', string>>>>({})
   const totalRevenue = useMemo(() => getTotalRevenue(form), [form])
   const totalExpenses = useMemo(() => getTotalExpenses(form), [form])
   const profit = useMemo(() => getEstimatedProfit(form), [form])
@@ -54,61 +77,52 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
     setForm((current) => ({ ...current, [field]: number }))
     if (errors[field]) setErrors((current) => ({ ...current, [field]: undefined }))
   }
-  const setProvince = (side: 'origin' | 'destination', code: string) => {
+  const setProvince = (side: LocationSide, code: string) => {
     const province = PHILIPPINE_LOCATIONS.find((item) => item.code === code)
-    const provinceCodeField = side === 'origin' ? 'originProvinceCode' : 'destinationProvinceCode'
-    const provinceField = side === 'origin' ? 'originProvince' : 'destinationProvince'
-    const cityCodeField = side === 'origin' ? 'originCityCode' : 'destinationCityCode'
-    const cityField = side === 'origin' ? 'originCity' : 'destinationCity'
-    const barangayCodeField = side === 'origin' ? 'originBarangayCode' : 'destinationBarangayCode'
-    const barangayField = side === 'origin' ? 'originBarangay' : 'destinationBarangay'
+    const fields = locationFieldNames[side]
     setForm((current) => ({
       ...current,
-      [provinceCodeField]: province?.code ?? '', [provinceField]: province?.name ?? '',
-      [cityCodeField]: '', [cityField]: '',
-      [barangayCodeField]: '', [barangayField]: '',
+      [fields.provinceCode]: province?.code ?? '', [fields.province]: province?.name ?? '',
+      [fields.cityCode]: '', [fields.city]: '', [fields.barangayCode]: '', [fields.barangay]: '',
     }))
-    setErrors((current) => ({ ...current, [provinceField]: undefined, [cityField]: undefined }))
+    setErrors((current) => ({ ...current, [fields.province]: undefined, [fields.city]: undefined }))
   }
-  const setCity = (side: 'origin' | 'destination', code: string) => {
-    const provinceCode = side === 'origin' ? form.originProvinceCode : form.destinationProvinceCode
+  const setCity = (side: LocationSide, code: string) => {
+    const fields = locationFieldNames[side]
+    const provinceCode = form[fields.provinceCode]
     const locality = PHILIPPINE_LOCATIONS.find((item) => item.code === provinceCode)?.localities.find((item) => item.code === code)
-    const cityCodeField = side === 'origin' ? 'originCityCode' : 'destinationCityCode'
-    const cityField = side === 'origin' ? 'originCity' : 'destinationCity'
-    const barangayCodeField = side === 'origin' ? 'originBarangayCode' : 'destinationBarangayCode'
-    const barangayField = side === 'origin' ? 'originBarangay' : 'destinationBarangay'
     setForm((current) => ({
-      ...current, [cityCodeField]: locality?.code ?? '', [cityField]: locality?.name ?? '',
-      [barangayCodeField]: '', [barangayField]: '',
+      ...current, [fields.cityCode]: locality?.code ?? '', [fields.city]: locality?.name ?? '',
+      [fields.barangayCode]: '', [fields.barangay]: '',
     }))
-    if (errors[cityField]) setErrors((current) => ({ ...current, [cityField]: undefined }))
+    if (errors[fields.city]) setErrors((current) => ({ ...current, [fields.city]: undefined }))
   }
-  const addSubTrip = () => {
-    const subTrip: SubTripInput = {
+  const addDropOff = () => {
+    const dropOff: DropOffInput = {
       id: crypto.randomUUID(), destinationProvinceCode: '', destinationProvince: '',
       destinationCityCode: '', destinationCity: '', destinationBarangayCode: '', destinationBarangay: '',
-      destinationAddress: '', customerRate: 0,
+      destinationAddress: '',
     }
-    setForm((current) => ({ ...current, subTrips: [...current.subTrips, subTrip] }))
+    setForm((current) => ({ ...current, dropOffs: [...current.dropOffs, dropOff] }))
   }
-  const updateSubTrip = (id: string, patch: Partial<SubTripInput>) => {
-    setForm((current) => ({ ...current, subTrips: current.subTrips.map((subTrip) => subTrip.id === id ? { ...subTrip, ...patch } : subTrip) }))
-    setSubTripErrors((current) => ({ ...current, [id]: {} }))
+  const updateDropOff = (id: string, patch: Partial<DropOffInput>) => {
+    setForm((current) => ({ ...current, dropOffs: current.dropOffs.map((dropOff) => dropOff.id === id ? { ...dropOff, ...patch } : dropOff) }))
+    setDropOffErrors((current) => ({ ...current, [id]: {} }))
   }
-  const removeSubTrip = (id: string) => {
-    setForm((current) => ({ ...current, subTrips: current.subTrips.filter((subTrip) => subTrip.id !== id) }))
-    setSubTripErrors((current) => { const next = { ...current }; delete next[id]; return next })
+  const removeDropOff = (id: string) => {
+    setForm((current) => ({ ...current, dropOffs: current.dropOffs.filter((dropOff) => dropOff.id !== id) }))
+    setDropOffErrors((current) => { const next = { ...current }; delete next[id]; return next })
   }
-  const setSubTripProvince = (id: string, code: string) => {
+  const setDropOffProvince = (id: string, code: string) => {
     const province = PHILIPPINE_LOCATIONS.find((item) => item.code === code)
-    updateSubTrip(id, {
+    updateDropOff(id, {
       destinationProvinceCode: province?.code ?? '', destinationProvince: province?.name ?? '',
       destinationCityCode: '', destinationCity: '', destinationBarangayCode: '', destinationBarangay: '',
     })
   }
-  const setSubTripCity = (id: string, provinceCode: string, code: string) => {
+  const setDropOffCity = (id: string, provinceCode: string, code: string) => {
     const locality = PHILIPPINE_LOCATIONS.find((item) => item.code === provinceCode)?.localities.find((item) => item.code === code)
-    updateSubTrip(id, {
+    updateDropOff(id, {
       destinationCityCode: locality?.code ?? '', destinationCity: locality?.name ?? '',
       destinationBarangayCode: '', destinationBarangay: '',
     })
@@ -118,17 +132,18 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
     requiredText.forEach((field) => { if (!String(form[field]).trim()) next[field] = `${textLabels[field]} is required.` })
     requiredMoney.forEach((field) => { if (!Number.isFinite(form[field]) || Number(form[field]) <= 0) next[field] = `${textLabels[field]} must be greater than zero.` })
     moneyFields.forEach((field) => { if (Number(form[field]) < 0) next[field] = 'Amount cannot be negative.' })
-    const nextSubTripErrors: typeof subTripErrors = {}
-    form.subTrips.forEach((subTrip) => {
-      const subErrors: (typeof nextSubTripErrors)[string] = {}
-      if (!subTrip.destinationProvince) subErrors.province = 'Province is required.'
-      if (!subTrip.destinationCity) subErrors.city = 'City or municipality is required.'
-      if (!Number.isFinite(subTrip.customerRate) || subTrip.customerRate <= 0) subErrors.rate = 'Customer rate must be greater than zero.'
-      if (Object.keys(subErrors).length) nextSubTripErrors[subTrip.id] = subErrors
+    if (form.driverStartTime && !form.driverEndTime) next.driverEndTime = 'Enter the driver end time.'
+    if (form.driverEndTime && !form.driverStartTime) next.driverStartTime = 'Enter the driver start time.'
+    const nextDropOffErrors: typeof dropOffErrors = {}
+    form.dropOffs.forEach((dropOff) => {
+      const stopErrors: (typeof nextDropOffErrors)[string] = {}
+      if (!dropOff.destinationProvince) stopErrors.province = 'Province is required.'
+      if (!dropOff.destinationCity) stopErrors.city = 'City or municipality is required.'
+      if (Object.keys(stopErrors).length) nextDropOffErrors[dropOff.id] = stopErrors
     })
     setErrors(next)
-    setSubTripErrors(nextSubTripErrors)
-    return Object.keys(next).length === 0 && Object.keys(nextSubTripErrors).length === 0
+    setDropOffErrors(nextDropOffErrors)
+    return Object.keys(next).length === 0 && Object.keys(nextDropOffErrors).length === 0
   }
   const submit = (event: FormEvent) => { event.preventDefault(); if (validate()) onSave(form) }
 
@@ -140,27 +155,29 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
     </label>
   )
 
-  const locationFields = (side: 'origin' | 'destination') => {
-    const isOrigin = side === 'origin'
-    const provinceCode = isOrigin ? form.originProvinceCode : form.destinationProvinceCode
-    const cityCode = isOrigin ? form.originCityCode : form.destinationCityCode
-    const barangayCode = isOrigin ? form.originBarangayCode : form.destinationBarangayCode
-    const barangay = isOrigin ? form.originBarangay : form.destinationBarangay
-    const address = isOrigin ? form.originAddress : form.destinationAddress
-    const provinceError = isOrigin ? errors.originProvince : errors.destinationProvince
-    const cityError = isOrigin ? errors.originCity : errors.destinationCity
+  const locationFields = (side: LocationSide) => {
+    const fields = locationFieldNames[side]
+    const provinceCode = form[fields.provinceCode]
+    const cityCode = form[fields.cityCode]
+    const barangayCode = form[fields.barangayCode]
+    const barangay = form[fields.barangay]
+    const address = form[fields.address]
+    const provinceError = errors[fields.province]
+    const cityError = errors[fields.city]
+    const heading = side === 'home' ? 'Starting Location' : side === 'origin' ? 'Pick Up Location' : side === 'ending' ? 'Ending Location' : 'Drop-off 1'
+    const description = side === 'home' ? 'Where the driver begins this trip' : side === 'origin' ? 'Warehouse or hub pickup point' : side === 'ending' ? 'Where the driver finishes this trip' : 'First delivery location'
     const localities = PHILIPPINE_LOCATIONS.find((item) => item.code === provinceCode)?.localities ?? []
     return (
       <div className="location-card">
         <div className="location-card-heading">
-          <span>{isOrigin ? <Navigation size={16} /> : <MapPin size={16} />}</span>
-          <div><strong>{isOrigin ? 'From' : 'To'}</strong><small>{isOrigin ? 'Pickup location' : 'Delivery location'}</small></div>
+          <span>{side === 'home' ? <Navigation size={16} /> : side === 'ending' ? <Flag size={16} /> : <MapPin size={16} />}</span>
+          <div><strong>{heading}</strong><small>{description}</small></div>
         </div>
         <div className="form-grid">
           <label className="field"><span>Province / area<b>*</b></span><select className={provinceError ? 'invalid' : ''} value={provinceCode} onChange={(event) => setProvince(side, event.target.value)}><option value="">Select province</option>{PHILIPPINE_LOCATIONS.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{provinceError && <small className="field-error">{provinceError}</small>}</label>
           <label className="field"><span>City / municipality<b>*</b></span><select className={cityError ? 'invalid' : ''} value={cityCode} onChange={(event) => setCity(side, event.target.value)} disabled={!provinceCode}><option value="">{provinceCode ? 'Select city or municipality' : 'Select province first'}</option>{localities.map((locality) => <option key={locality.code} value={locality.code}>{locality.name}</option>)}</select>{cityError && <small className="field-error">{cityError}</small>}</label>
-          {cityCode ? <BarangaySelect key={`${side}-${cityCode}`} cityCode={cityCode} value={barangayCode} selectedName={barangay} onChange={(code, name) => setForm((current) => ({ ...current, [isOrigin ? 'originBarangayCode' : 'destinationBarangayCode']: code, [isOrigin ? 'originBarangay' : 'destinationBarangay']: name }))} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
-          <label className="field"><span>Exact address <em>Optional</em></span><input value={address} onChange={(event) => setText(isOrigin ? 'originAddress' : 'destinationAddress', event.target.value)} placeholder="Block, lot, street, building, or landmark" /></label>
+          {cityCode ? <BarangaySelect key={`${side}-${cityCode}`} cityCode={cityCode} value={barangayCode} selectedName={barangay} onChange={(code, name) => setForm((current) => ({ ...current, [fields.barangayCode]: code, [fields.barangay]: name }))} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
+          <label className="field"><span>Exact address <em>Optional</em></span><input value={address} onChange={(event) => setText(fields.address, event.target.value)} placeholder="Block, lot, street, building, or landmark" /></label>
         </div>
       </div>
     )
@@ -182,30 +199,32 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
                 <label className="field"><span>Truck plate number<b>*</b></span><input className={errors.truckPlateNumber ? 'invalid' : ''} value={form.truckPlateNumber} onChange={(e) => setText('truckPlateNumber', e.target.value.toUpperCase())} placeholder="e.g. ABC 1234" />{errors.truckPlateNumber && <small className="field-error">{errors.truckPlateNumber}</small>}</label>
                 <label className="field"><span>Driver name<b>*</b></span><input className={errors.driverName ? 'invalid' : ''} value={form.driverName} onChange={(e) => setText('driverName', e.target.value)} placeholder="Full name" />{errors.driverName && <small className="field-error">{errors.driverName}</small>}</label>
                 <label className="field"><span>Helper name</span><input value={form.helperName} onChange={(e) => setText('helperName', e.target.value)} placeholder="Full name" /></label>
-                <label className="field full"><span>Customer name <em>Optional</em></span><input value={form.customerName} onChange={(e) => setText('customerName', e.target.value)} placeholder="Company or customer" /></label>
+                <label className="field"><span>Driver start time <em>Optional</em></span><div className={`date-input ${errors.driverStartTime ? 'invalid' : ''}`}><Clock3 size={17} /><input type="time" value={form.driverStartTime} onChange={(e) => setText('driverStartTime', e.target.value)} /></div>{errors.driverStartTime && <small className="field-error">{errors.driverStartTime}</small>}</label>
+                <label className="field"><span>Driver end time <em>Optional</em></span><div className={`date-input ${errors.driverEndTime ? 'invalid' : ''}`}><Clock3 size={17} /><input type="time" value={form.driverEndTime} onChange={(e) => setText('driverEndTime', e.target.value)} /></div>{errors.driverEndTime && <small className="field-error">{errors.driverEndTime}</small>}</label>
+                <label className="field full"><span>Warehouse / Hub <em>Optional</em></span><input value={form.customerName} onChange={(e) => setText('customerName', e.target.value)} placeholder="Warehouse, hub, or company name" /></label>
               </div>
-              <div className="route-fields">{locationFields('origin')}{locationFields('destination')}</div>
+              <div className="route-fields">{locationFields('home')}{locationFields('origin')}{locationFields('destination')}</div>
               <div className="sub-trips-block">
-                <div className="sub-trips-heading"><div><h4>Additional routes</h4><p>Add another delivery made before returning home. Driver and helper rates are not repeated.</p></div><button type="button" className="secondary-button" onClick={addSubTrip} disabled={form.subTrips.length >= 20}><Plus size={15} /> Add route</button></div>
-                {!form.subTrips.length && <div className="sub-trips-empty">No additional routes for this trip.</div>}
-                {form.subTrips.map((subTrip, index) => {
-                  const localities = PHILIPPINE_LOCATIONS.find((item) => item.code === subTrip.destinationProvinceCode)?.localities ?? []
-                  const previousStop = index === 0 ? form.destinationCity : form.subTrips[index - 1].destinationCity
-                  const subErrors = subTripErrors[subTrip.id] ?? {}
+                <div className="sub-trips-heading"><div><h4>Additional drop-offs</h4><p>Stops on the main delivery route. These do not add revenue.</p></div><button type="button" className="secondary-button" onClick={addDropOff} disabled={form.dropOffs.length >= 20}><Plus size={15} /> Add drop-off</button></div>
+                {!form.dropOffs.length && <div className="sub-trips-empty">No additional drop-offs for this trip.</div>}
+                {form.dropOffs.map((dropOff, index) => {
+                  const localities = PHILIPPINE_LOCATIONS.find((item) => item.code === dropOff.destinationProvinceCode)?.localities ?? []
+                  const previousStop = index === 0 ? form.destinationCity : form.dropOffs[index - 1].destinationCity
+                  const stopErrors = dropOffErrors[dropOff.id] ?? {}
                   return (
-                    <article className="sub-trip-card" key={subTrip.id}>
-                      <div className="sub-trip-heading"><div><span>{index + 1}</span><div><strong>Additional route {index + 1}</strong><small>From {previousStop || 'the previous destination'}</small></div></div><button type="button" className="icon-button" onClick={() => removeSubTrip(subTrip.id)} aria-label={`Remove additional route ${index + 1}`}><Trash2 size={16} /></button></div>
+                    <article className="sub-trip-card" key={dropOff.id}>
+                      <div className="sub-trip-heading"><div><span>{index + 2}</span><div><strong>Drop-off {index + 2}</strong><small>After {previousStop || 'the previous drop-off'}</small></div></div><button type="button" className="icon-button" onClick={() => removeDropOff(dropOff.id)} aria-label={`Remove drop-off ${index + 2}`}><Trash2 size={16} /></button></div>
                       <div className="form-grid">
-                        <label className="field"><span>Destination province<b>*</b></span><select className={subErrors.province ? 'invalid' : ''} value={subTrip.destinationProvinceCode} onChange={(event) => setSubTripProvince(subTrip.id, event.target.value)}><option value="">Select province</option>{PHILIPPINE_LOCATIONS.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{subErrors.province && <small className="field-error">{subErrors.province}</small>}</label>
-                        <label className="field"><span>Destination city / municipality<b>*</b></span><select className={subErrors.city ? 'invalid' : ''} value={subTrip.destinationCityCode} onChange={(event) => setSubTripCity(subTrip.id, subTrip.destinationProvinceCode, event.target.value)} disabled={!subTrip.destinationProvinceCode}><option value="">{subTrip.destinationProvinceCode ? 'Select city or municipality' : 'Select province first'}</option>{localities.map((locality) => <option key={locality.code} value={locality.code}>{locality.name}</option>)}</select>{subErrors.city && <small className="field-error">{subErrors.city}</small>}</label>
-                        {subTrip.destinationCityCode ? <BarangaySelect key={`${subTrip.id}-${subTrip.destinationCityCode}`} cityCode={subTrip.destinationCityCode} value={subTrip.destinationBarangayCode} selectedName={subTrip.destinationBarangay} onChange={(code, name) => updateSubTrip(subTrip.id, { destinationBarangayCode: code, destinationBarangay: name })} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
-                        <label className="field"><span>Exact address <em>Optional</em></span><input value={subTrip.destinationAddress} onChange={(event) => updateSubTrip(subTrip.id, { destinationAddress: event.target.value })} placeholder="Block, street, building, or landmark" /></label>
-                        <label className="field"><span>Customer rate / revenue<b>*</b></span><div className={`money-input ${subErrors.rate ? 'invalid' : ''}`}><i>₱</i><input type="number" min="0" step="0.01" value={String(subTrip.customerRate)} onChange={(event) => updateSubTrip(subTrip.id, { customerRate: event.target.value === '' ? 0 : Number(event.target.value) })} /></div>{subErrors.rate && <small className="field-error">{subErrors.rate}</small>}</label>
+                        <label className="field"><span>Destination province<b>*</b></span><select className={stopErrors.province ? 'invalid' : ''} value={dropOff.destinationProvinceCode} onChange={(event) => setDropOffProvince(dropOff.id, event.target.value)}><option value="">Select province</option>{PHILIPPINE_LOCATIONS.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{stopErrors.province && <small className="field-error">{stopErrors.province}</small>}</label>
+                        <label className="field"><span>Destination city / municipality<b>*</b></span><select className={stopErrors.city ? 'invalid' : ''} value={dropOff.destinationCityCode} onChange={(event) => setDropOffCity(dropOff.id, dropOff.destinationProvinceCode, event.target.value)} disabled={!dropOff.destinationProvinceCode}><option value="">{dropOff.destinationProvinceCode ? 'Select city or municipality' : 'Select province first'}</option>{localities.map((locality) => <option key={locality.code} value={locality.code}>{locality.name}</option>)}</select>{stopErrors.city && <small className="field-error">{stopErrors.city}</small>}</label>
+                        {dropOff.destinationCityCode ? <BarangaySelect key={`${dropOff.id}-${dropOff.destinationCityCode}`} cityCode={dropOff.destinationCityCode} value={dropOff.destinationBarangayCode} selectedName={dropOff.destinationBarangay} onChange={(code, name) => updateDropOff(dropOff.id, { destinationBarangayCode: code, destinationBarangay: name })} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
+                        <label className="field"><span>Exact address <em>Optional</em></span><input value={dropOff.destinationAddress} onChange={(event) => updateDropOff(dropOff.id, { destinationAddress: event.target.value })} placeholder="Block, street, building, or landmark" /></label>
                       </div>
                     </article>
                   )
                 })}
               </div>
+              <div className="route-fields">{locationFields('ending')}</div>
             </section>
             <section className="form-section">
               <div className="section-heading"><span>02</span><div><h3>Revenue & core costs</h3><p>Primary income and delivery expenses</p></div></div>
@@ -224,7 +243,6 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
             <section className="calculation-panel">
               <div className="calculation-title"><div><Info size={16} /> Live calculation</div><span>Updates as you type</span></div>
               <div className="calculation-grid">
-                <div><span>Additional revenue</span><strong>{formatPeso(additionalRevenue)}</strong></div>
                 <div><span>Total revenue</span><strong>{formatPeso(totalRevenue)}</strong></div>
                 <div><span>Total expenses</span><strong>{formatPeso(totalExpenses)}</strong></div>
                 <div className={`profit-total ${profit < 0 ? 'negative' : ''}`}><span>Estimated profit</span><strong>{formatPeso(profit)}</strong></div>

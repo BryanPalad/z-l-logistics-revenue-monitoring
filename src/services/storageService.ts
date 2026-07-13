@@ -34,7 +34,13 @@ const createRemoteTrip = (input: TripInput) => request<Trip>('/api/trips', {
 
 const tripToInput = (trip: Trip): TripInput => ({
   tripDate: trip.tripDate, truckPlateNumber: trip.truckPlateNumber, driverName: trip.driverName,
-  helperName: trip.helperName,
+  helperName: trip.helperName, driverStartTime: trip.driverStartTime ?? '', driverEndTime: trip.driverEndTime ?? '',
+  homeProvinceCode: trip.homeProvinceCode ?? '', homeProvince: trip.homeProvince ?? '',
+  homeCityCode: trip.homeCityCode ?? '', homeCity: trip.homeCity ?? '',
+  homeBarangayCode: trip.homeBarangayCode ?? '', homeBarangay: trip.homeBarangay ?? '', homeAddress: trip.homeAddress ?? '',
+  endingProvinceCode: trip.endingProvinceCode ?? '', endingProvince: trip.endingProvince ?? '',
+  endingCityCode: trip.endingCityCode ?? '', endingCity: trip.endingCity ?? '',
+  endingBarangayCode: trip.endingBarangayCode ?? '', endingBarangay: trip.endingBarangay ?? '', endingAddress: trip.endingAddress ?? '',
   originProvinceCode: trip.originProvinceCode ?? '', originProvince: trip.originProvince ?? '',
   originCityCode: trip.originCityCode ?? '', originCity: trip.originCity ?? '',
   originBarangayCode: trip.originBarangayCode ?? '', originBarangay: trip.originBarangay ?? '', originAddress: trip.originAddress ?? '',
@@ -45,7 +51,7 @@ const tripToInput = (trip: Trip): TripInput => ({
   revenue: trip.revenue, driverRate: trip.driverRate, helperRate: trip.helperRate,
   gasExpense: trip.gasExpense, parkingExpense: trip.parkingExpense, tollExpense: trip.tollExpense,
   foodExpense: trip.foodExpense, otherExpense: trip.otherExpense, remarks: trip.remarks,
-  subTrips: trip.subTrips ?? [],
+  dropOffs: trip.dropOffs ?? [],
 })
 
 export const storageService = {

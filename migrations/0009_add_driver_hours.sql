@@ -1,0 +1,2 @@
+ALTER TABLE trips ADD COLUMN driver_start_time TEXT NOT NULL DEFAULT '';
+ALTER TABLE trips ADD COLUMN driver_end_time TEXT NOT NULL DEFAULT '';
