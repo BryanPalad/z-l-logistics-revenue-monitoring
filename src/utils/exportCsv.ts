@@ -1,17 +1,24 @@
 import type { Trip } from '../types'
-import { getEstimatedProfit, getOtherExpenses, getTotalExpenses } from './calculations'
+import { formatDistance, formatDuration, formatPeso, getAdditionalRevenue, getEstimatedProfit, getOtherExpenses, getTotalExpenses, getTotalRevenue } from './calculations'
 
 const escapeCsv = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
 
 export function exportTripsToCsv(trips: Trip[]) {
   const headers = [
-    'Date', 'Truck Plate', 'Driver', 'Helper', 'Destination', 'Customer', 'Revenue',
+    'Date', 'Truck Plate', 'Driver', 'Helper',
+    'From Province', 'From City/Municipality', 'From Barangay', 'From Exact Address',
+    'To Province', 'To City/Municipality', 'To Barangay', 'To Exact Address', 'Additional Routes', 'Estimated Distance', 'Estimated Drive Time', 'Customer',
+    'Main Revenue', 'Additional Revenue', 'Total Revenue',
     'Driver Rate', 'Helper Rate', 'Gas Expense', 'Other Expenses', 'Total Expenses',
     'Estimated Profit', 'Remarks',
   ]
   const rows = trips.map((trip) => [
-    trip.tripDate, trip.truckPlateNumber, trip.driverName, trip.helperName, trip.destination,
-    trip.customerName, trip.revenue, trip.driverRate, trip.helperRate, trip.gasExpense,
+    trip.tripDate, trip.truckPlateNumber, trip.driverName, trip.helperName,
+    trip.originProvince, trip.originCity, trip.originBarangay, trip.originAddress,
+    trip.destinationProvince, trip.destinationCity, trip.destinationBarangay, trip.destinationAddress,
+    trip.subTrips.map((subTrip, index) => `${index + 1}. ${[subTrip.destinationAddress, subTrip.destinationBarangay, subTrip.destinationCity, subTrip.destinationProvince].filter(Boolean).join(', ')} (${formatPeso(subTrip.customerRate)})`).join(' | '),
+    formatDistance(trip.routeDistanceMeters), formatDuration(trip.routeDurationSeconds), trip.customerName,
+    trip.revenue, getAdditionalRevenue(trip), getTotalRevenue(trip), trip.driverRate, trip.helperRate, trip.gasExpense,
     getOtherExpenses(trip), getTotalExpenses(trip), getEstimatedProfit(trip), trip.remarks,
   ])
   const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n')

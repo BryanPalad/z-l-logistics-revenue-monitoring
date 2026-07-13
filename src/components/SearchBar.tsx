@@ -20,7 +20,7 @@ export function SearchBar({ value, onChange, month, onMonthChange, onExport, onP
           aria-label="Search trips"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Search driver, plate, destination..."
+          placeholder="Search driver, plate, route, customer..."
         />
         {value && <button className="clear-search" onClick={() => onChange('')} aria-label="Clear search"><X size={16} /></button>}
       </div>
