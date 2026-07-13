@@ -1,0 +1,39 @@
+{
+  "name": "z-and-l-palm-line-logistic",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && tsc -p tsconfig.worker.json && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "cf:dev": "npm run build && wrangler pages dev dist --d1 DB=replace-with-your-d1-database-id --persist-to .wrangler/state",
+    "cf:db:create": "wrangler d1 create z-and-l-logistics",
+    "cf:db:migrate:local": "wrangler d1 migrations apply z-and-l-logistics --local",
+    "cf:db:migrate:remote": "wrangler d1 migrations apply z-and-l-logistics --remote",
+    "cf:deploy": "npm run build && wrangler pages deploy dist --project-name z-and-l-logistics-monitor"
+  },
+  "dependencies": {
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260702.1",
+    "@eslint/js": "latest",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "tailwindcss": "^4.3.2",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "wrangler": "4.86.0"
+  }
+}
