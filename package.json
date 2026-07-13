@@ -13,7 +13,7 @@
     "cf:db:create": "wrangler d1 create z-and-l-logistics",
     "cf:db:migrate:local": "wrangler d1 migrations apply z-and-l-logistics --local",
     "cf:db:migrate:remote": "wrangler d1 migrations apply z-and-l-logistics --remote",
-    "cf:deploy": "npm run build && wrangler pages deploy dist --project-name z-and-l-logistics-monitor"
+    "cf:deploy": "npm run build && wrangler pages deploy dist --project-name z-l-logistics-revenue-monitoring"
   },
   "dependencies": {
     "lucide-react": "latest",
