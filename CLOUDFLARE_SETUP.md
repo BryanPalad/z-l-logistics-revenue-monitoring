@@ -24,7 +24,7 @@ This project uses Cloudflare Pages Functions for its API and Cloudflare D1 for t
    npm run cf:db:migrate:remote
    ```
 
-5. Create a Cloudflare Pages project named `z-and-l-logistics-monitor`, connect the Git repository,
+5. Create a Cloudflare Pages project named `z-l-logistics-revenue-monitoring`, connect the Git repository,
    and bind the D1 database as `DB` under Settings > Bindings.
 
 6. Use `npm run build` as the build command and `dist` as the output directory.
