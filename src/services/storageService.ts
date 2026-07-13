@@ -21,6 +21,7 @@ const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: 'The server returned an unexpected response.' })) as { error?: string }
+    if (response.status === 401) window.dispatchEvent(new Event('auth-expired'))
     throw new Error(body.error || `Request failed with status ${response.status}.`)
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>

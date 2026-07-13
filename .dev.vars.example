@@ -1,0 +1,2 @@
+APP_PIN=123456
+SESSION_SECRET=replace-this-with-at-least-32-random-characters
