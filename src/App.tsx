@@ -1,4 +1,4 @@
-import { LogOut, Moon, Plus, Route, Sun } from 'lucide-react'
+import { LogOut, MapPinned, Moon, Plus, Route, Sun, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ConfirmDeleteModal } from './components/ConfirmDeleteModal'
 import { PinLogin } from './components/PinLogin'
@@ -8,9 +8,13 @@ import { SuccessToast } from './components/SuccessToast'
 import { TripModal } from './components/TripModal'
 import { TripDetailsModal } from './components/TripDetailsModal'
 import { TripTable } from './components/TripTable'
+import { LocationManagementModal } from './components/LocationManagementModal'
+import { PersonnelManagementModal } from './components/PersonnelManagementModal'
 import { storageService } from './services/storageService'
 import { authService } from './services/authService'
-import type { ModalMode, Trip, TripInput } from './types'
+import { locationService } from './services/locationService'
+import { personnelService } from './services/personnelService'
+import type { ModalMode, Personnel, PersonnelInput, SavedLocation, SavedLocationInput, Trip, TripInput } from './types'
 import { exportTripsToCsv } from './utils/exportCsv'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -27,6 +31,8 @@ const emptyTrip = (): TripInput => ({
 
 function App() {
   const [trips, setTrips] = useState<Trip[]>([])
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
+  const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -37,6 +43,8 @@ function App() {
   const [modal, setModal] = useState<{ mode: ModalMode; trip?: Trip } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Trip | null>(null)
   const [viewTarget, setViewTarget] = useState<Trip | null>(null)
+  const [locationManagerOpen, setLocationManagerOpen] = useState(false)
+  const [personnelManagerOpen, setPersonnelManagerOpen] = useState(false)
   const [toast, setToast] = useState<{ id: string; message: string } | null>(null)
 
   useEffect(() => {
@@ -47,7 +55,10 @@ function App() {
       authService.hasSession()
         .then(async (hasSession) => {
           setAuthenticated(hasSession)
-          if (hasSession) setTrips(await storageService.getTrips())
+          if (hasSession) {
+            const [loadedTrips, loadedLocations, loadedPersonnel] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel()])
+            setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel)
+          }
         })
         .catch((error: unknown) => setStorageError(error instanceof Error ? error.message : 'Unable to load trips.'))
         .finally(() => setLoading(false))
@@ -61,14 +72,15 @@ function App() {
   }, [toast])
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => {
-    const expireSession = () => { setAuthenticated(false); setTrips([]); setModal(null); setDeleteTarget(null); setViewTarget(null); setToast(null) }
+    const expireSession = () => { setAuthenticated(false); setTrips([]); setSavedLocations([]); setPersonnel([]); setModal(null); setDeleteTarget(null); setViewTarget(null); setLocationManagerOpen(false); setPersonnelManagerOpen(false); setToast(null) }
     window.addEventListener('auth-expired', expireSession)
     return () => window.removeEventListener('auth-expired', expireSession)
   }, [])
 
   const login = async (pin: string) => {
     await authService.login(pin)
-    setTrips(await storageService.getTrips())
+    const [loadedTrips, loadedLocations, loadedPersonnel] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel()])
+    setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel)
     setAuthenticated(true)
     setStorageError('')
   }
@@ -76,9 +88,13 @@ function App() {
     await authService.logout()
     setAuthenticated(false)
     setTrips([])
+    setSavedLocations([])
+    setPersonnel([])
     setModal(null)
     setDeleteTarget(null)
     setViewTarget(null)
+    setLocationManagerOpen(false)
+    setPersonnelManagerOpen(false)
     setToast(null)
   }
 
@@ -130,6 +146,28 @@ function App() {
       setStorageError(error instanceof Error ? error.message : 'Unable to delete the trip.')
     }
   }
+  const saveLocation = async (input: SavedLocationInput, id?: string) => {
+    if (id) await locationService.updateLocation(id, input)
+    else await locationService.createLocation(input)
+    setSavedLocations(await locationService.getLocations())
+    setToast({ id: crypto.randomUUID(), message: id ? 'Saved location updated.' : 'Location saved successfully.' })
+  }
+  const deleteLocation = async (id: string) => {
+    await locationService.deleteLocation(id)
+    setSavedLocations(await locationService.getLocations())
+    setToast({ id: crypto.randomUUID(), message: 'Saved location deleted.' })
+  }
+  const savePerson = async (input: PersonnelInput, id?: string) => {
+    if (id) await personnelService.updatePerson(id, input)
+    else await personnelService.createPerson(input)
+    setPersonnel(await personnelService.getPersonnel())
+    setToast({ id: crypto.randomUUID(), message: id ? 'Crew member updated.' : 'Crew member saved.' })
+  }
+  const deletePerson = async (id: string) => {
+    await personnelService.deletePerson(id)
+    setPersonnel(await personnelService.getPersonnel())
+    setToast({ id: crypto.randomUUID(), message: 'Crew member deleted.' })
+  }
   const initialData: TripInput = modal?.trip ? {
     tripDate: modal.trip.tripDate, truckPlateNumber: modal.trip.truckPlateNumber,
     driverName: modal.trip.driverName, helperName: modal.trip.helperName,
@@ -168,7 +206,7 @@ function App() {
       <main id="top">
         <section className="page-heading">
           <div><span className="eyebrow">FINANCIAL OVERVIEW</span><h1>Logistics Revenue Monitoring</h1><p>Track every trip, control expenses, and know your margins.</p></div>
-          <button className="primary-button new-trip" onClick={() => setModal({ mode: 'create' })}><Plus size={19} /> New Trip</button>
+          <div className="page-heading-actions"><button className="secondary-button" onClick={() => setPersonnelManagerOpen(true)}><UsersRound size={17} /> Manage Crew</button><button className="secondary-button" onClick={() => setLocationManagerOpen(true)}><MapPinned size={17} /> Manage Locations</button><button className="primary-button new-trip" onClick={() => setModal({ mode: 'create' })}><Plus size={19} /> New Trip</button></div>
         </section>
 
         {storageError && <div className="error-banner" role="alert"><span>{storageError}</span><button onClick={() => setStorageError('')}>Dismiss</button></div>}
@@ -183,9 +221,11 @@ function App() {
       </main>
       <footer className="app-footer"><span>Z&amp;L Palm Line Logistic · Logistics monitoring</span><span>Securely stored in Cloudflare D1</span></footer>
 
-      {modal && <TripModal mode={modal.mode} initialData={initialData} onClose={() => !saving && setModal(null)} onSave={saveTrip} saving={saving} />}
+      {modal && <TripModal mode={modal.mode} initialData={initialData} savedLocations={savedLocations} personnel={personnel} onClose={() => !saving && setModal(null)} onSave={saveTrip} saving={saving} />}
       {viewTarget && <TripDetailsModal trip={viewTarget} trips={trips} onClose={() => setViewTarget(null)} onEdit={(trip) => { setViewTarget(null); setModal({ mode: 'edit', trip }) }} />}
       {deleteTarget && <ConfirmDeleteModal trip={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={deleteTrip} />}
+      {locationManagerOpen && <LocationManagementModal locations={savedLocations} onClose={() => setLocationManagerOpen(false)} onSave={saveLocation} onDelete={deleteLocation} />}
+      {personnelManagerOpen && <PersonnelManagementModal personnel={personnel} onClose={() => setPersonnelManagerOpen(false)} onSave={savePerson} onDelete={deletePerson} />}
       {toast && <SuccessToast key={toast.id} message={toast.message} onDismiss={() => setToast(null)} />}
     </div>
   )

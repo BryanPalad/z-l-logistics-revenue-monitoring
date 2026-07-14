@@ -9,6 +9,40 @@ export interface DropOffInput {
   destinationAddress: string
 }
 
+export interface SavedLocationInput {
+  name: string
+  provinceCode: string
+  province: string
+  cityCode: string
+  city: string
+  barangayCode: string
+  barangay: string
+  address: string
+}
+
+export interface SavedLocation extends SavedLocationInput {
+  id: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type PersonnelRole = 'driver' | 'helper'
+
+export interface PersonnelInput {
+  role: PersonnelRole
+  name: string
+  defaultRate: number
+  startDate: string
+  endDate: string
+  isActive: boolean
+}
+
+export interface Personnel extends PersonnelInput {
+  id: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TripInput {
   tripDate: string
   truckPlateNumber: string
