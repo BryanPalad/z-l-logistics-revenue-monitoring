@@ -2,12 +2,14 @@ import { CalendarDays, Clock3, Flag, Info, MapPin, Navigation, Plus, Trash2, X }
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BarangaySelect } from './BarangaySelect'
 import { PHILIPPINE_LOCATIONS } from '../data/philippineLocations'
-import type { DropOffInput, ModalMode, TripFormErrors, TripInput } from '../types'
+import type { DropOffInput, ModalMode, Personnel, PersonnelRole, SavedLocation, TripFormErrors, TripInput } from '../types'
 import { formatPeso, getEstimatedProfit, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
 
 interface Props {
   mode: ModalMode
   initialData: TripInput
+  savedLocations: SavedLocation[]
+  personnel: Personnel[]
   onClose: () => void
   onSave: (data: TripInput) => void
   saving?: boolean
@@ -53,13 +55,15 @@ const locationFieldNames = {
   },
 } as const
 
-export function TripModal({ mode, initialData, onClose, onSave, saving = false }: Props) {
+export function TripModal({ mode, initialData, savedLocations, personnel, onClose, onSave, saving = false }: Props) {
   const [form, setForm] = useState<TripInput>(initialData)
   const [errors, setErrors] = useState<TripFormErrors>({})
   const [dropOffErrors, setDropOffErrors] = useState<Record<string, Partial<Record<'province' | 'city', string>>>>({})
   const totalRevenue = useMemo(() => getTotalRevenue(form), [form])
   const totalExpenses = useMemo(() => getTotalExpenses(form), [form])
   const profit = useMemo(() => getEstimatedProfit(form), [form])
+  const drivers = useMemo(() => personnel.filter((person) => person.role === 'driver' && person.isActive), [personnel])
+  const helpers = useMemo(() => personnel.filter((person) => person.role === 'helper' && person.isActive), [personnel])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
@@ -76,6 +80,17 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
     const number = value === '' ? 0 : Number(value)
     setForm((current) => ({ ...current, [field]: number }))
     if (errors[field]) setErrors((current) => ({ ...current, [field]: undefined }))
+  }
+  const applyPersonnel = (role: PersonnelRole, id: string) => {
+    const person = personnel.find((item) => item.id === id && item.role === role)
+    if (!person) return
+    if (role === 'driver') {
+      setForm((current) => ({ ...current, driverName: person.name, driverRate: person.defaultRate }))
+      setErrors((current) => ({ ...current, driverName: undefined, driverRate: undefined }))
+    } else {
+      setForm((current) => ({ ...current, helperName: person.name, helperRate: person.defaultRate }))
+      setErrors((current) => ({ ...current, helperRate: undefined }))
+    }
   }
   const setProvince = (side: LocationSide, code: string) => {
     const province = PHILIPPINE_LOCATIONS.find((item) => item.code === code)
@@ -96,6 +111,19 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
       [fields.barangayCode]: '', [fields.barangay]: '',
     }))
     if (errors[fields.city]) setErrors((current) => ({ ...current, [fields.city]: undefined }))
+  }
+  const applySavedLocation = (side: LocationSide, id: string) => {
+    const location = savedLocations.find((item) => item.id === id)
+    if (!location) return
+    const fields = locationFieldNames[side]
+    setForm((current) => ({
+      ...current,
+      [fields.provinceCode]: location.provinceCode, [fields.province]: location.province,
+      [fields.cityCode]: location.cityCode, [fields.city]: location.city,
+      [fields.barangayCode]: location.barangayCode, [fields.barangay]: location.barangay,
+      [fields.address]: location.address,
+    }))
+    setErrors((current) => ({ ...current, [fields.province]: undefined, [fields.city]: undefined }))
   }
   const addDropOff = () => {
     const dropOff: DropOffInput = {
@@ -125,6 +153,16 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
     updateDropOff(id, {
       destinationCityCode: locality?.code ?? '', destinationCity: locality?.name ?? '',
       destinationBarangayCode: '', destinationBarangay: '',
+    })
+  }
+  const applySavedDropOff = (dropOffId: string, locationId: string) => {
+    const location = savedLocations.find((item) => item.id === locationId)
+    if (!location) return
+    updateDropOff(dropOffId, {
+      destinationProvinceCode: location.provinceCode, destinationProvince: location.province,
+      destinationCityCode: location.cityCode, destinationCity: location.city,
+      destinationBarangayCode: location.barangayCode, destinationBarangay: location.barangay,
+      destinationAddress: location.address,
     })
   }
   const validate = () => {
@@ -174,6 +212,7 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
           <div><strong>{heading}</strong><small>{description}</small></div>
         </div>
         <div className="form-grid">
+          <label className="field full saved-location-picker"><span>Saved location <em>Optional</em></span><select value="" onChange={(event) => applySavedLocation(side, event.target.value)} disabled={!savedLocations.length}><option value="">{savedLocations.length ? 'Select a saved location to autofill' : 'No saved locations yet'}</option>{savedLocations.map((location) => <option key={location.id} value={location.id}>{location.name} — {location.city}</option>)}</select><small>Autofills the fields below; you can still edit them.</small></label>
           <label className="field"><span>Province / area<b>*</b></span><select className={provinceError ? 'invalid' : ''} value={provinceCode} onChange={(event) => setProvince(side, event.target.value)}><option value="">Select province</option>{PHILIPPINE_LOCATIONS.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{provinceError && <small className="field-error">{provinceError}</small>}</label>
           <label className="field"><span>City / municipality<b>*</b></span><select className={cityError ? 'invalid' : ''} value={cityCode} onChange={(event) => setCity(side, event.target.value)} disabled={!provinceCode}><option value="">{provinceCode ? 'Select city or municipality' : 'Select province first'}</option>{localities.map((locality) => <option key={locality.code} value={locality.code}>{locality.name}</option>)}</select>{cityError && <small className="field-error">{cityError}</small>}</label>
           {cityCode ? <BarangaySelect key={`${side}-${cityCode}`} cityCode={cityCode} value={barangayCode} selectedName={barangay} onChange={(code, name) => setForm((current) => ({ ...current, [fields.barangayCode]: code, [fields.barangay]: name }))} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
@@ -197,6 +236,8 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
               <div className="form-grid">
                 <label className="field"><span>Trip date<b>*</b></span><div className={`date-input ${errors.tripDate ? 'invalid' : ''}`}><CalendarDays size={17} /><input type="date" value={form.tripDate} onChange={(e) => setText('tripDate', e.target.value)} /></div>{errors.tripDate && <small className="field-error">{errors.tripDate}</small>}</label>
                 <label className="field"><span>Truck plate number<b>*</b></span><input className={errors.truckPlateNumber ? 'invalid' : ''} value={form.truckPlateNumber} onChange={(e) => setText('truckPlateNumber', e.target.value.toUpperCase())} placeholder="e.g. ABC 1234" />{errors.truckPlateNumber && <small className="field-error">{errors.truckPlateNumber}</small>}</label>
+                <label className="field saved-crew-picker"><span>Saved driver <em>Optional</em></span><select value="" onChange={(event) => applyPersonnel('driver', event.target.value)} disabled={!drivers.length}><option value="">{drivers.length ? 'Select driver to autofill' : 'No saved drivers yet'}</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name} — {formatPeso(driver.defaultRate)}</option>)}</select><small>Fills the driver name and rate.</small></label>
+                <label className="field saved-crew-picker"><span>Saved helper <em>Optional</em></span><select value="" onChange={(event) => applyPersonnel('helper', event.target.value)} disabled={!helpers.length}><option value="">{helpers.length ? 'Select helper to autofill' : 'No saved helpers yet'}</option>{helpers.map((helper) => <option key={helper.id} value={helper.id}>{helper.name} — {formatPeso(helper.defaultRate)}</option>)}</select><small>Fills the helper name and rate.</small></label>
                 <label className="field"><span>Driver name<b>*</b></span><input className={errors.driverName ? 'invalid' : ''} value={form.driverName} onChange={(e) => setText('driverName', e.target.value)} placeholder="Full name" />{errors.driverName && <small className="field-error">{errors.driverName}</small>}</label>
                 <label className="field"><span>Helper name</span><input value={form.helperName} onChange={(e) => setText('helperName', e.target.value)} placeholder="Full name" /></label>
                 <label className="field"><span>Driver start time <em>Optional</em></span><div className={`date-input ${errors.driverStartTime ? 'invalid' : ''}`}><Clock3 size={17} /><input type="time" value={form.driverStartTime} onChange={(e) => setText('driverStartTime', e.target.value)} /></div>{errors.driverStartTime && <small className="field-error">{errors.driverStartTime}</small>}</label>
@@ -215,6 +256,7 @@ export function TripModal({ mode, initialData, onClose, onSave, saving = false }
                     <article className="sub-trip-card" key={dropOff.id}>
                       <div className="sub-trip-heading"><div><span>{index + 2}</span><div><strong>Drop-off {index + 2}</strong><small>After {previousStop || 'the previous drop-off'}</small></div></div><button type="button" className="icon-button" onClick={() => removeDropOff(dropOff.id)} aria-label={`Remove drop-off ${index + 2}`}><Trash2 size={16} /></button></div>
                       <div className="form-grid">
+                        <label className="field full saved-location-picker"><span>Saved location <em>Optional</em></span><select value="" onChange={(event) => applySavedDropOff(dropOff.id, event.target.value)} disabled={!savedLocations.length}><option value="">{savedLocations.length ? 'Select a saved location to autofill' : 'No saved locations yet'}</option>{savedLocations.map((location) => <option key={location.id} value={location.id}>{location.name} — {location.city}</option>)}</select><small>Autofills the fields below; you can still edit them.</small></label>
                         <label className="field"><span>Destination province<b>*</b></span><select className={stopErrors.province ? 'invalid' : ''} value={dropOff.destinationProvinceCode} onChange={(event) => setDropOffProvince(dropOff.id, event.target.value)}><option value="">Select province</option>{PHILIPPINE_LOCATIONS.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{stopErrors.province && <small className="field-error">{stopErrors.province}</small>}</label>
                         <label className="field"><span>Destination city / municipality<b>*</b></span><select className={stopErrors.city ? 'invalid' : ''} value={dropOff.destinationCityCode} onChange={(event) => setDropOffCity(dropOff.id, dropOff.destinationProvinceCode, event.target.value)} disabled={!dropOff.destinationProvinceCode}><option value="">{dropOff.destinationProvinceCode ? 'Select city or municipality' : 'Select province first'}</option>{localities.map((locality) => <option key={locality.code} value={locality.code}>{locality.name}</option>)}</select>{stopErrors.city && <small className="field-error">{stopErrors.city}</small>}</label>
                         {dropOff.destinationCityCode ? <BarangaySelect key={`${dropOff.id}-${dropOff.destinationCityCode}`} cityCode={dropOff.destinationCityCode} value={dropOff.destinationBarangayCode} selectedName={dropOff.destinationBarangay} onChange={(code, name) => updateDropOff(dropOff.id, { destinationBarangayCode: code, destinationBarangay: name })} /> : <label className="field"><span>Barangay <em>Optional</em></span><select disabled><option>Select city first</option></select></label>}
