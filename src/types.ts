@@ -43,6 +43,36 @@ export interface Personnel extends PersonnelInput {
   updatedAt: string
 }
 
+export interface SavedTruckInput {
+  brand: string
+  truckType: string
+  plateNumber: string
+  color: string
+  fuelEfficiencyKmPerLiter: number
+}
+
+export interface SavedTruck extends SavedTruckInput {
+  id: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FuelLogInput {
+  truckId: string
+  purchaseDate: string
+  amount: number
+  liters: number
+  odometerKm: number | null
+  notes: string
+}
+
+export interface FuelLog extends FuelLogInput {
+  id: string
+  truckPlateNumber: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TripInput {
   tripDate: string
   truckPlateNumber: string

@@ -1,11 +1,10 @@
-import { Pencil, Plus, Save, Trash2, UserRound, UsersRound, X } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { Pencil, Plus, Save, Trash2, UserRound, UsersRound } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import type { Personnel, PersonnelInput, PersonnelRole } from '../types'
 import { formatPeso } from '../utils/calculations'
 
 interface Props {
   personnel: Personnel[]
-  onClose: () => void
   onSave: (input: PersonnelInput, id?: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
@@ -18,19 +17,12 @@ const localToday = () => {
 const emptyPerson = (): PersonnelInput => ({ role: 'driver', name: '', defaultRate: 0, startDate: localToday(), endDate: '', isActive: true })
 const formatEmploymentDate = (date: string) => date ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${date}T00:00:00`)) : 'Not recorded'
 
-export function PersonnelManagementModal({ personnel, onClose, onSave, onDelete }: Props) {
+export function PersonnelManagementModal({ personnel, onSave, onDelete }: Props) {
   const [form, setForm] = useState<PersonnelInput>(emptyPerson)
   const [editingId, setEditingId] = useState<string>()
   const [deletingId, setDeletingId] = useState<string>()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && !saving && onClose()
-    window.addEventListener('keydown', onKey)
-    document.body.classList.add('modal-open')
-    return () => { window.removeEventListener('keydown', onKey); document.body.classList.remove('modal-open') }
-  }, [onClose, saving])
 
   const reset = () => { setForm(emptyPerson()); setEditingId(undefined); setError('') }
   const edit = (person: Personnel) => {
@@ -60,10 +52,9 @@ export function PersonnelManagementModal({ personnel, onClose, onSave, onDelete 
   }
   const count = (role: PersonnelRole) => personnel.filter((person) => person.role === role && person.isActive).length
 
-  return <div className="modal-backdrop drawer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
-    <aside className="trip-drawer personnel-manager" role="dialog" aria-modal="true" aria-labelledby="personnel-manager-title">
-      <header className="drawer-header"><div><span className="eyebrow">DRIVERS &amp; HELPERS</span><h2 id="personnel-manager-title">Crew management</h2><p>Save names and standard rates for faster trip entry.</p></div><button className="icon-button" onClick={onClose} disabled={saving} aria-label="Close"><X size={21} /></button></header>
-      <div className="drawer-content">
+  return <section className="management-page personnel-management-page" aria-labelledby="personnel-manager-title">
+      <header className="management-page-heading"><div><span className="eyebrow">DRIVERS &amp; HELPERS</span><h1 id="personnel-manager-title">Crew management</h1><p>Save names and standard rates for faster trip entry.</p></div></header>
+      <div className="management-page-content">
         <form className="location-editor" onSubmit={submit} noValidate>
           <div className="location-editor-heading"><div><h3>{editingId ? 'Edit crew member' : 'Add crew member'}</h3><p>The selected rate can still be changed on each trip.</p></div>{editingId && <button type="button" className="text-button" onClick={reset}>Cancel edit</button>}</div>
           {error && <div className="location-manager-error" role="alert">{error}</div>}
@@ -87,6 +78,5 @@ export function PersonnelManagementModal({ personnel, onClose, onSave, onDelete 
           </article>)}
         </section>
       </div>
-    </aside>
-  </div>
+  </section>
 }

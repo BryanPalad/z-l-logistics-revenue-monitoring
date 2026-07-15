@@ -1,20 +1,24 @@
-import { LogOut, MapPinned, Moon, Plus, Route, Sun, UsersRound } from 'lucide-react'
+import { LogOut, Menu, Moon, Plus, Sun } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { AppSidebar, type AppPage } from './components/AppSidebar'
 import { ConfirmDeleteModal } from './components/ConfirmDeleteModal'
+import { DashboardOverview } from './components/DashboardOverview'
 import { PinLogin } from './components/PinLogin'
 import { SearchBar } from './components/SearchBar'
-import { SummaryCards } from './components/SummaryCards'
 import { SuccessToast } from './components/SuccessToast'
 import { TripModal } from './components/TripModal'
 import { TripDetailsModal } from './components/TripDetailsModal'
 import { TripTable } from './components/TripTable'
 import { LocationManagementModal } from './components/LocationManagementModal'
 import { PersonnelManagementModal } from './components/PersonnelManagementModal'
+import { TruckManagementModal } from './components/TruckManagementModal'
 import { storageService } from './services/storageService'
 import { authService } from './services/authService'
 import { locationService } from './services/locationService'
 import { personnelService } from './services/personnelService'
-import type { ModalMode, Personnel, PersonnelInput, SavedLocation, SavedLocationInput, Trip, TripInput } from './types'
+import { truckService } from './services/truckService'
+import { fuelLogService } from './services/fuelLogService'
+import type { FuelLog, FuelLogInput, ModalMode, Personnel, PersonnelInput, SavedLocation, SavedLocationInput, SavedTruck, SavedTruckInput, Trip, TripInput } from './types'
 import { exportTripsToCsv } from './utils/exportCsv'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -33,6 +37,8 @@ function App() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
   const [personnel, setPersonnel] = useState<Personnel[]>([])
+  const [savedTrucks, setSavedTrucks] = useState<SavedTruck[]>([])
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([])
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -43,8 +49,8 @@ function App() {
   const [modal, setModal] = useState<{ mode: ModalMode; trip?: Trip } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Trip | null>(null)
   const [viewTarget, setViewTarget] = useState<Trip | null>(null)
-  const [locationManagerOpen, setLocationManagerOpen] = useState(false)
-  const [personnelManagerOpen, setPersonnelManagerOpen] = useState(false)
+  const [activePage, setActivePage] = useState<AppPage>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [toast, setToast] = useState<{ id: string; message: string } | null>(null)
 
   useEffect(() => {
@@ -56,8 +62,8 @@ function App() {
         .then(async (hasSession) => {
           setAuthenticated(hasSession)
           if (hasSession) {
-            const [loadedTrips, loadedLocations, loadedPersonnel] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel()])
-            setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel)
+            const [loadedTrips, loadedLocations, loadedPersonnel, loadedTrucks, loadedFuelLogs] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel(), truckService.getTrucks(), fuelLogService.getFuelLogs()])
+            setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel); setSavedTrucks(loadedTrucks); setFuelLogs(loadedFuelLogs)
           }
         })
         .catch((error: unknown) => setStorageError(error instanceof Error ? error.message : 'Unable to load trips.'))
@@ -72,15 +78,15 @@ function App() {
   }, [toast])
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => {
-    const expireSession = () => { setAuthenticated(false); setTrips([]); setSavedLocations([]); setPersonnel([]); setModal(null); setDeleteTarget(null); setViewTarget(null); setLocationManagerOpen(false); setPersonnelManagerOpen(false); setToast(null) }
+    const expireSession = () => { setAuthenticated(false); setTrips([]); setSavedLocations([]); setPersonnel([]); setSavedTrucks([]); setFuelLogs([]); setModal(null); setDeleteTarget(null); setViewTarget(null); setSidebarOpen(false); setToast(null) }
     window.addEventListener('auth-expired', expireSession)
     return () => window.removeEventListener('auth-expired', expireSession)
   }, [])
 
   const login = async (pin: string) => {
     await authService.login(pin)
-    const [loadedTrips, loadedLocations, loadedPersonnel] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel()])
-    setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel)
+    const [loadedTrips, loadedLocations, loadedPersonnel, loadedTrucks, loadedFuelLogs] = await Promise.all([storageService.getTrips(), locationService.getLocations(), personnelService.getPersonnel(), truckService.getTrucks(), fuelLogService.getFuelLogs()])
+    setTrips(loadedTrips); setSavedLocations(loadedLocations); setPersonnel(loadedPersonnel); setSavedTrucks(loadedTrucks); setFuelLogs(loadedFuelLogs)
     setAuthenticated(true)
     setStorageError('')
   }
@@ -90,11 +96,12 @@ function App() {
     setTrips([])
     setSavedLocations([])
     setPersonnel([])
+    setSavedTrucks([])
+    setFuelLogs([])
     setModal(null)
     setDeleteTarget(null)
     setViewTarget(null)
-    setLocationManagerOpen(false)
-    setPersonnelManagerOpen(false)
+    setSidebarOpen(false)
     setToast(null)
   }
 
@@ -168,6 +175,28 @@ function App() {
     setPersonnel(await personnelService.getPersonnel())
     setToast({ id: crypto.randomUUID(), message: 'Crew member deleted.' })
   }
+  const saveTruck = async (input: SavedTruckInput, id?: string) => {
+    if (id) await truckService.updateTruck(id, input)
+    else await truckService.createTruck(input)
+    setSavedTrucks(await truckService.getTrucks())
+    setToast({ id: crypto.randomUUID(), message: id ? 'Truck updated.' : 'Truck saved successfully.' })
+  }
+  const deleteTruck = async (id: string) => {
+    await truckService.deleteTruck(id)
+    setSavedTrucks(await truckService.getTrucks())
+    setToast({ id: crypto.randomUUID(), message: 'Truck deleted.' })
+  }
+  const saveFuelLog = async (input: FuelLogInput, id?: string) => {
+    if (id) await fuelLogService.updateFuelLog(id, input)
+    else await fuelLogService.createFuelLog(input)
+    setFuelLogs(await fuelLogService.getFuelLogs())
+    setToast({ id: crypto.randomUUID(), message: id ? 'Fuel purchase updated.' : 'Fuel expense added.' })
+  }
+  const deleteFuelLog = async (id: string) => {
+    await fuelLogService.deleteFuelLog(id)
+    setFuelLogs(await fuelLogService.getFuelLogs())
+    setToast({ id: crypto.randomUUID(), message: 'Fuel purchase deleted.' })
+  }
   const initialData: TripInput = modal?.trip ? {
     tripDate: modal.trip.tripDate, truckPlateNumber: modal.trip.truckPlateNumber,
     driverName: modal.trip.driverName, helperName: modal.trip.helperName,
@@ -197,35 +226,43 @@ function App() {
   if (loading) return <div className="loading-state full-page"><div className="spinner" /><p>Preparing your secure dashboard...</p></div>
   if (!authenticated) return <PinLogin onLogin={login} />
 
+  const pageMeta: Record<AppPage, { title: string; description: string }> = {
+    dashboard: { title: 'Dashboard', description: 'Operations overview' },
+    trips: { title: 'Trips', description: 'Delivery ledger' },
+    trucks: { title: 'Trucks', description: 'Fleet management' },
+    crew: { title: 'Drivers & helpers', description: 'Crew management' },
+    locations: { title: 'Locations', description: 'Saved addresses' },
+  }
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#top"><span><Route size={21} /></span><div><strong>Z&amp;L Palm Line Logistic</strong><small>OPERATIONS</small></div></a>
-        <div className="topbar-actions"><span className="storage-status"><i /> Cloud database</span><button className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button><button className="secondary-button logout-button" onClick={logout}><LogOut size={16} /> Sign out</button></div>
-      </header>
-      <main id="top">
-        <section className="page-heading">
-          <div><span className="eyebrow">FINANCIAL OVERVIEW</span><h1>Logistics Revenue Monitoring</h1><p>Track every trip, control expenses, and know your margins.</p></div>
-          <div className="page-heading-actions"><button className="secondary-button" onClick={() => setPersonnelManagerOpen(true)}><UsersRound size={17} /> Manage Crew</button><button className="secondary-button" onClick={() => setLocationManagerOpen(true)}><MapPinned size={17} /> Manage Locations</button><button className="primary-button new-trip" onClick={() => setModal({ mode: 'create' })}><Plus size={19} /> New Trip</button></div>
-        </section>
+      <AppSidebar activePage={activePage} mobileOpen={sidebarOpen} onNavigate={setActivePage} onClose={() => setSidebarOpen(false)} />
+      <div className="workspace-main">
+        <header className="topbar">
+          <div className="topbar-page"><button className="icon-button mobile-menu-button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><div><strong>{pageMeta[activePage].title}</strong><small>{pageMeta[activePage].description}</small></div></div>
+          <div className="topbar-actions"><span className="storage-status"><i /> Cloud database</span><button className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button><button className="secondary-button logout-button" onClick={logout}><LogOut size={16} /> Sign out</button></div>
+        </header>
+        <main id="top">
+          {storageError && <div className="error-banner" role="alert"><span>{storageError}</span><button onClick={() => setStorageError('')}>Dismiss</button></div>}
+          {activePage === 'dashboard' ? <DashboardOverview trips={trips} fuelLogs={fuelLogs} onNewTrip={() => setModal({ mode: 'create' })} onViewTrip={setViewTarget} onViewAllTrips={() => setActivePage('trips')} /> : activePage === 'trips' ? <>
+            <section className="page-heading trips-page-heading">
+              <div><span className="eyebrow">TRIP RECORDS</span><h1>Delivery ledger</h1><p>Search, filter, review, and manage every logistics trip.</p></div>
+              <button className="primary-button new-trip" onClick={() => setModal({ mode: 'create' })}><Plus size={19} /> New Trip</button>
+            </section>
+            <section className="records-panel">
+              <div className="records-heading"><div><h2>All trips</h2><p>{monthFilteredTrips.length ? `${monthFilteredTrips.length} ${month ? 'trips in the selected month' : `saved ${monthFilteredTrips.length === 1 ? 'trip' : 'trips'} in your ledger`}` : month ? 'No trips in the selected month' : 'Your delivery ledger will appear here'}</p></div></div>
+              <SearchBar value={search} onChange={updateSearch} month={month} onMonthChange={updateMonth} onExport={() => exportTripsToCsv(visibleTrips)} onPrint={() => window.print()} resultCount={visibleTrips.length} disabled={!visibleTrips.length} />
+              <TripTable trips={visibleTrips} hasTrips={trips.length > 0} onNew={() => setModal({ mode: 'create' })} onView={setViewTarget} onEdit={(trip) => setModal({ mode: 'edit', trip })} onDuplicate={(trip) => setModal({ mode: 'duplicate', trip })} onDelete={setDeleteTarget} />
+              {!!visibleTrips.length && <div className="table-footer">Showing <strong>{visibleTrips.length}</strong> of <strong>{monthFilteredTrips.length}</strong> trips</div>}
+            </section>
+          </> : activePage === 'trucks' ? <TruckManagementModal trucks={savedTrucks} trips={trips} fuelLogs={fuelLogs} onSave={saveTruck} onDelete={deleteTruck} onSaveFuelLog={saveFuelLog} onDeleteFuelLog={deleteFuelLog} /> : activePage === 'crew' ? <PersonnelManagementModal personnel={personnel} onSave={savePerson} onDelete={deletePerson} /> : <LocationManagementModal locations={savedLocations} onSave={saveLocation} onDelete={deleteLocation} />}
+        </main>
+        <footer className="app-footer"><span>Z&amp;L Palm Line Logistic · Logistics monitoring</span><span>Securely stored in Cloudflare D1</span></footer>
+      </div>
 
-        {storageError && <div className="error-banner" role="alert"><span>{storageError}</span><button onClick={() => setStorageError('')}>Dismiss</button></div>}
-
-        <SummaryCards trips={monthFilteredTrips} />
-        <section className="records-panel">
-          <div className="records-heading"><div><h2>Trip records</h2><p>{monthFilteredTrips.length ? `${monthFilteredTrips.length} ${month ? 'trips in the selected month' : `saved ${monthFilteredTrips.length === 1 ? 'trip' : 'trips'} in your ledger`}` : month ? 'No trips in the selected month' : 'Your delivery ledger will appear here'}</p></div></div>
-          <SearchBar value={search} onChange={updateSearch} month={month} onMonthChange={updateMonth} onExport={() => exportTripsToCsv(visibleTrips)} onPrint={() => window.print()} resultCount={visibleTrips.length} disabled={!visibleTrips.length} />
-          <TripTable trips={visibleTrips} hasTrips={trips.length > 0} onNew={() => setModal({ mode: 'create' })} onView={setViewTarget} onEdit={(trip) => setModal({ mode: 'edit', trip })} onDuplicate={(trip) => setModal({ mode: 'duplicate', trip })} onDelete={setDeleteTarget} />
-          {!!visibleTrips.length && <div className="table-footer">Showing <strong>{visibleTrips.length}</strong> of <strong>{monthFilteredTrips.length}</strong> trips</div>}
-        </section>
-      </main>
-      <footer className="app-footer"><span>Z&amp;L Palm Line Logistic · Logistics monitoring</span><span>Securely stored in Cloudflare D1</span></footer>
-
-      {modal && <TripModal mode={modal.mode} initialData={initialData} savedLocations={savedLocations} personnel={personnel} onClose={() => !saving && setModal(null)} onSave={saveTrip} saving={saving} />}
+      {modal && <TripModal mode={modal.mode} initialData={initialData} savedLocations={savedLocations} personnel={personnel} savedTrucks={savedTrucks} onClose={() => !saving && setModal(null)} onSave={saveTrip} saving={saving} />}
       {viewTarget && <TripDetailsModal trip={viewTarget} trips={trips} onClose={() => setViewTarget(null)} onEdit={(trip) => { setViewTarget(null); setModal({ mode: 'edit', trip }) }} />}
       {deleteTarget && <ConfirmDeleteModal trip={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={deleteTrip} />}
-      {locationManagerOpen && <LocationManagementModal locations={savedLocations} onClose={() => setLocationManagerOpen(false)} onSave={saveLocation} onDelete={deleteLocation} />}
-      {personnelManagerOpen && <PersonnelManagementModal personnel={personnel} onClose={() => setPersonnelManagerOpen(false)} onSave={savePerson} onDelete={deletePerson} />}
       {toast && <SuccessToast key={toast.id} message={toast.message} onDismiss={() => setToast(null)} />}
     </div>
   )
