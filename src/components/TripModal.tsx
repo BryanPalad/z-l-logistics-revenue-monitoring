@@ -2,7 +2,7 @@ import { CalendarDays, Clock3, Flag, Info, MapPin, Navigation, Plus, Trash2, X }
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BarangaySelect } from './BarangaySelect'
 import { PHILIPPINE_LOCATIONS } from '../data/philippineLocations'
-import type { DropOffInput, ModalMode, Personnel, PersonnelRole, SavedLocation, TripFormErrors, TripInput } from '../types'
+import type { DropOffInput, ModalMode, Personnel, PersonnelRole, SavedLocation, SavedTruck, TripFormErrors, TripInput } from '../types'
 import { formatPeso, getEstimatedProfit, getTotalExpenses, getTotalRevenue } from '../utils/calculations'
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   initialData: TripInput
   savedLocations: SavedLocation[]
   personnel: Personnel[]
+  savedTrucks: SavedTruck[]
   onClose: () => void
   onSave: (data: TripInput) => void
   saving?: boolean
@@ -55,7 +56,7 @@ const locationFieldNames = {
   },
 } as const
 
-export function TripModal({ mode, initialData, savedLocations, personnel, onClose, onSave, saving = false }: Props) {
+export function TripModal({ mode, initialData, savedLocations, personnel, savedTrucks, onClose, onSave, saving = false }: Props) {
   const [form, setForm] = useState<TripInput>(initialData)
   const [errors, setErrors] = useState<TripFormErrors>({})
   const [dropOffErrors, setDropOffErrors] = useState<Record<string, Partial<Record<'province' | 'city', string>>>>({})
@@ -91,6 +92,12 @@ export function TripModal({ mode, initialData, savedLocations, personnel, onClos
       setForm((current) => ({ ...current, helperName: person.name, helperRate: person.defaultRate }))
       setErrors((current) => ({ ...current, helperRate: undefined }))
     }
+  }
+  const applyTruck = (id: string) => {
+    const truck = savedTrucks.find((item) => item.id === id)
+    if (!truck) return
+    setForm((current) => ({ ...current, truckPlateNumber: truck.plateNumber }))
+    setErrors((current) => ({ ...current, truckPlateNumber: undefined }))
   }
   const setProvince = (side: LocationSide, code: string) => {
     const province = PHILIPPINE_LOCATIONS.find((item) => item.code === code)
@@ -236,6 +243,7 @@ export function TripModal({ mode, initialData, savedLocations, personnel, onClos
               <div className="form-grid">
                 <label className="field"><span>Trip date<b>*</b></span><div className={`date-input ${errors.tripDate ? 'invalid' : ''}`}><CalendarDays size={17} /><input type="date" value={form.tripDate} onChange={(e) => setText('tripDate', e.target.value)} /></div>{errors.tripDate && <small className="field-error">{errors.tripDate}</small>}</label>
                 <label className="field"><span>Truck plate number<b>*</b></span><input className={errors.truckPlateNumber ? 'invalid' : ''} value={form.truckPlateNumber} onChange={(e) => setText('truckPlateNumber', e.target.value.toUpperCase())} placeholder="e.g. ABC 1234" />{errors.truckPlateNumber && <small className="field-error">{errors.truckPlateNumber}</small>}</label>
+                <label className="field saved-crew-picker full"><span>Saved truck <em>Optional</em></span><select value="" onChange={(event) => applyTruck(event.target.value)} disabled={!savedTrucks.length}><option value="">{savedTrucks.length ? 'Select truck to autofill' : 'No saved trucks yet'}</option>{savedTrucks.map((truck) => <option key={truck.id} value={truck.id}>{truck.brand} {truck.truckType} — {truck.plateNumber}</option>)}</select><small>Fills the plate number. Manual entry remains available.</small></label>
                 <label className="field saved-crew-picker"><span>Saved driver <em>Optional</em></span><select value="" onChange={(event) => applyPersonnel('driver', event.target.value)} disabled={!drivers.length}><option value="">{drivers.length ? 'Select driver to autofill' : 'No saved drivers yet'}</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name} — {formatPeso(driver.defaultRate)}</option>)}</select><small>Fills the driver name and rate.</small></label>
                 <label className="field saved-crew-picker"><span>Saved helper <em>Optional</em></span><select value="" onChange={(event) => applyPersonnel('helper', event.target.value)} disabled={!helpers.length}><option value="">{helpers.length ? 'Select helper to autofill' : 'No saved helpers yet'}</option>{helpers.map((helper) => <option key={helper.id} value={helper.id}>{helper.name} — {formatPeso(helper.defaultRate)}</option>)}</select><small>Fills the helper name and rate.</small></label>
                 <label className="field"><span>Driver name<b>*</b></span><input className={errors.driverName ? 'invalid' : ''} value={form.driverName} onChange={(e) => setText('driverName', e.target.value)} placeholder="Full name" />{errors.driverName && <small className="field-error">{errors.driverName}</small>}</label>

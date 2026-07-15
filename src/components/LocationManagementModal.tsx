@@ -1,12 +1,11 @@
-import { MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { MapPin, Pencil, Plus, Save, Trash2 } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { PHILIPPINE_LOCATIONS } from '../data/philippineLocations'
 import type { SavedLocation, SavedLocationInput } from '../types'
 import { BarangaySelect } from './BarangaySelect'
 
 interface Props {
   locations: SavedLocation[]
-  onClose: () => void
   onSave: (input: SavedLocationInput, id?: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
@@ -18,20 +17,13 @@ const emptyLocation = (): SavedLocationInput => ({
 const locationText = (location: SavedLocation) =>
   [location.address, location.barangay, location.city, location.province].filter(Boolean).join(', ')
 
-export function LocationManagementModal({ locations, onClose, onSave, onDelete }: Props) {
+export function LocationManagementModal({ locations, onSave, onDelete }: Props) {
   const [form, setForm] = useState<SavedLocationInput>(emptyLocation)
   const [editingId, setEditingId] = useState<string>()
   const [deletingId, setDeletingId] = useState<string>()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const localities = PHILIPPINE_LOCATIONS.find((province) => province.code === form.provinceCode)?.localities ?? []
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && !saving && onClose()
-    window.addEventListener('keydown', onKey)
-    document.body.classList.add('modal-open')
-    return () => { window.removeEventListener('keydown', onKey); document.body.classList.remove('modal-open') }
-  }, [onClose, saving])
 
   const reset = () => { setForm(emptyLocation()); setEditingId(undefined); setError('') }
   const edit = (location: SavedLocation) => {
@@ -68,10 +60,9 @@ export function LocationManagementModal({ locations, onClose, onSave, onDelete }
     finally { setSaving(false) }
   }
 
-  return <div className="modal-backdrop drawer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
-    <aside className="trip-drawer location-manager" role="dialog" aria-modal="true" aria-labelledby="location-manager-title">
-      <header className="drawer-header"><div><span className="eyebrow">SAVED LOCATIONS</span><h2 id="location-manager-title">Location management</h2><p>Create reusable addresses for faster trip entry.</p></div><button className="icon-button" onClick={onClose} disabled={saving} aria-label="Close"><X size={21} /></button></header>
-      <div className="drawer-content">
+  return <section className="management-page location-management-page" aria-labelledby="location-manager-title">
+      <header className="management-page-heading"><div><span className="eyebrow">SAVED LOCATIONS</span><h1 id="location-manager-title">Location management</h1><p>Create reusable addresses for faster trip entry.</p></div></header>
+      <div className="management-page-content">
         <form className="location-editor" onSubmit={submit} noValidate>
           <div className="location-editor-heading"><div><h3>{editingId ? 'Edit saved location' : 'Add saved location'}</h3><p>Trips copy these details and remain manually editable.</p></div>{editingId && <button type="button" className="text-button" onClick={reset}>Cancel edit</button>}</div>
           {error && <div className="location-manager-error" role="alert">{error}</div>}
@@ -94,6 +85,5 @@ export function LocationManagementModal({ locations, onClose, onSave, onDelete }
           </article>)}
         </section>
       </div>
-    </aside>
-  </div>
+  </section>
 }

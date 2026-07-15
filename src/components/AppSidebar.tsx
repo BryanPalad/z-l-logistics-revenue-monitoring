@@ -1,0 +1,31 @@
+import { ClipboardList, LayoutDashboard, MapPinned, Route, Truck, UsersRound, X } from 'lucide-react'
+
+export type AppPage = 'dashboard' | 'trips' | 'trucks' | 'crew' | 'locations'
+
+interface Props {
+  activePage: AppPage
+  mobileOpen: boolean
+  onNavigate: (page: AppPage) => void
+  onClose: () => void
+}
+
+export function AppSidebar({ activePage, mobileOpen, onNavigate, onClose }: Props) {
+  const navigate = (page: AppPage) => { onNavigate(page); onClose() }
+
+  return <>
+    <button className={`sidebar-scrim ${mobileOpen ? 'visible' : ''}`} onClick={onClose} aria-label="Close navigation" tabIndex={mobileOpen ? 0 : -1} />
+    <aside className={`app-sidebar ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Main navigation">
+      <div className="sidebar-brand"><span><Route size={21} /></span><div><strong>Z&amp;L Palm Line Logistic</strong><small>OPERATIONS</small></div><button onClick={onClose} aria-label="Close navigation"><X size={19} /></button></div>
+      <nav className="sidebar-nav">
+        <p>Workspace</p>
+        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => navigate('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
+        <button className={activePage === 'trips' ? 'active' : ''} onClick={() => navigate('trips')}><ClipboardList size={18} /><span>Trips</span></button>
+        <p>Management</p>
+        <button className={activePage === 'trucks' ? 'active' : ''} onClick={() => navigate('trucks')}><Truck size={18} /><span>Trucks</span></button>
+        <button className={activePage === 'crew' ? 'active' : ''} onClick={() => navigate('crew')}><UsersRound size={18} /><span>Drivers &amp; helpers</span></button>
+        <button className={activePage === 'locations' ? 'active' : ''} onClick={() => navigate('locations')}><MapPinned size={18} /><span>Locations</span></button>
+      </nav>
+      <div className="sidebar-footer"><span><i /> Cloudflare D1 connected</span><small>Secure logistics workspace</small></div>
+    </aside>
+  </>
+}
